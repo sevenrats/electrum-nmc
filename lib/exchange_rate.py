@@ -114,6 +114,8 @@ class ExchangeBase(PrintError):
         rates = self.get_rates('')
         return sorted([str(a) for (a, b) in rates.items() if b is not None and len(a)==3])
 
+# Doesn't support Namecoin.
+"""
 class BitcoinAverage(ExchangeBase):
 
     def get_rates(self, ccy):
@@ -131,8 +133,11 @@ class BitcoinAverage(ExchangeBase):
                                "/indices/global/history/BTC%s?period=alltime&format=csv" % ccy)
         return dict([(h['DateTime'][:10], h['Average'])
                      for h in history])
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Bitcointoyou(ExchangeBase):
 
     def get_rates(self, ccy):
@@ -141,8 +146,11 @@ class Bitcointoyou(ExchangeBase):
 
     def history_ccys(self):
         return ['BRL']
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class BitcoinVenezuela(ExchangeBase):
 
     def get_rates(self, ccy):
@@ -157,78 +165,111 @@ class BitcoinVenezuela(ExchangeBase):
     def request_history(self, ccy):
         return self.get_json('api.bitcoinvenezuela.com',
                              "/historical/index.php?coin=BTC")[ccy +'_BTC']
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Bitbank(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('public.bitbank.cc', '/btc_jpy/ticker')
         return {'JPY': Decimal(json['data']['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class BitFlyer(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('bitflyer.jp', '/api/echo/price')
         return {'JPY': Decimal(json['mid'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Bitmarket(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('www.bitmarket.pl', '/json/BTCPLN/ticker.json')
         return {'PLN': Decimal(json['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class BitPay(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('bitpay.com', '/api/rates')
         return dict([(r['code'], Decimal(r['rate'])) for r in json])
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Bitso(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('api.bitso.com', '/v2/ticker')
         return {'MXN': Decimal(json['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class BitStamp(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('www.bitstamp.net', '/api/ticker/')
         return {'USD': Decimal(json['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Bitvalor(ExchangeBase):
 
     def get_rates(self,ccy):
         json = self.get_json('api.bitvalor.com', '/v1/ticker.json')
         return {'BRL': Decimal(json['ticker_1h']['total']['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class BlockchainInfo(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('blockchain.info', '/ticker')
         return dict([(r, Decimal(json[r]['15m'])) for r in json])
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class BTCChina(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('data.btcchina.com', '/data/ticker')
         return {'CNY': Decimal(json['ticker']['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class BTCParalelo(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('btcparalelo.com', '/api/price')
         return {'VEF': Decimal(json['price'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Coinbase(ExchangeBase):
 
     def get_rates(self, ccy):
@@ -236,8 +277,11 @@ class Coinbase(ExchangeBase):
                              '/api/v1/currencies/exchange_rates')
         return dict([(r[7:].upper(), Decimal(json[r]))
                      for r in json if r.startswith('btc_to_')])
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class CoinDesk(ExchangeBase):
 
     def get_currencies(self):
@@ -265,22 +309,31 @@ class CoinDesk(ExchangeBase):
                  % (start, end))
         json = self.get_json('api.coindesk.com', query)
         return json['bpi']
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Coinsecure(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('api.coinsecure.in', '/v0/noauth/newticker')
         return {'INR': Decimal(json['lastprice'] / 100.0 )}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Foxbit(ExchangeBase):
 
     def get_rates(self,ccy):
         json = self.get_json('api.bitvalor.com', '/v1/ticker.json')
         return {'BRL': Decimal(json['ticker_1h']['exchanges']['FOX']['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class itBit(ExchangeBase):
 
     def get_rates(self, ccy):
@@ -290,8 +343,11 @@ class itBit(ExchangeBase):
         if ccy in ccys:
             result[ccy] = Decimal(json['lastPrice'])
         return result
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Kraken(ExchangeBase):
 
     def get_rates(self, ccy):
@@ -301,54 +357,78 @@ class Kraken(ExchangeBase):
                              '/0/public/Ticker?pair=%s' % ','.join(pairs))
         return dict((k[-3:], Decimal(float(v['c'][0])))
                      for k, v in json['result'].items())
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class LocalBitcoins(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('localbitcoins.com',
                              '/bitcoinaverage/ticker-all-currencies/')
         return dict([(r, Decimal(json[r]['rates']['last'])) for r in json])
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class MercadoBitcoin(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('api.bitvalor.com', '/v1/ticker.json')
         return {'BRL': Decimal(json['ticker_1h']['exchanges']['MBT']['last'])}
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class NegocieCoins(ExchangeBase):
 
     def get_rates(self,ccy):
         json = self.get_json('api.bitvalor.com', '/v1/ticker.json')
         return {'BRL': Decimal(json['ticker_1h']['exchanges']['NEG']['last'])}
+"""
 
+# Doesn't support Namecoin.
+"""
 class TheRockTrading(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('api.therocktrading.com', 
                              '/v1/funds/BTCEUR/ticker')
         return {'EUR': Decimal(json['last'])}
+"""
 
+# Doesn't support Namecoin.
+"""
 class Unocoin(ExchangeBase):
 
     def get_rates(self, ccy):
         json = self.get_json('www.unocoin.com', 'trade?buy')
         return {'INR': Decimal(json)}
+"""
 
 
 class WEX(ExchangeBase):
 
     def get_rates(self, ccy):
+        # EUR and RUR markets aren't supported for Namecoin
+        """
         json_eur = self.get_json('wex.nz', '/api/3/ticker/btc_eur')
         json_rub = self.get_json('wex.nz', '/api/3/ticker/btc_rur')
-        json_usd = self.get_json('wex.nz', '/api/3/ticker/btc_usd')
+        """
+        json_usd = self.get_json('wex.nz', '/api/3/ticker/nmc_usd')
+        """
         return {'EUR': Decimal(json_eur['btc_eur']['last']),
                 'RUB': Decimal(json_rub['btc_rur']['last']),
-                'USD': Decimal(json_usd['btc_usd']['last'])}
+        """
+        return {
+                'USD': Decimal(json_usd['nmc_usd']['last'])}
 
 
+# Doesn't support Namecoin.
+"""
 class Winkdex(ExchangeBase):
 
     def get_rates(self, ccy):
@@ -364,12 +444,16 @@ class Winkdex(ExchangeBase):
         history = json['series'][0]['results']
         return dict([(h['timestamp'][:10], h['price'] / 100.0)
                      for h in history])
+"""
 
 
+# Doesn't support Namecoin.
+"""
 class Zaif(ExchangeBase):
     def get_rates(self, ccy):
         json = self.get_json('api.zaif.jp', '/api/1/last_price/btc_jpy')
         return {'JPY': Decimal(json['last_price'])}
+"""
 
 
 def dictinvert(d):
@@ -486,10 +570,10 @@ class FxThread(ThreadJob):
 
     def get_currency(self):
         '''Use when dynamic fetching is needed'''
-        return self.config.get("currency", "EUR")
+        return self.config.get("currency", "USD")
 
     def config_exchange(self):
-        return self.config.get('use_exchange', 'BitcoinAverage')
+        return self.config.get('use_exchange', 'WEX')
 
     def show_history(self):
         return self.is_enabled() and self.get_history_config() and self.ccy in self.exchange.history_ccys()
@@ -501,7 +585,7 @@ class FxThread(ThreadJob):
         self.on_quotes()
 
     def set_exchange(self, name):
-        class_ = globals().get(name, BitcoinAverage)
+        class_ = globals().get(name, WEX)
         self.print_error("using exchange", name)
         if self.config_exchange() != name:
             self.config.set_key('use_exchange', name, True)
