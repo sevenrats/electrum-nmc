@@ -163,11 +163,19 @@ class Test_bitcoin(SequentialTestCase):
             return key.sign_message(msg, compressed)
 
         sig1 = sign_message_with_wif_privkey(
-            'L1TnU2zbNaAqMoVh65Cyvmcjzbrj41Gs9iTLcWbpJCMynXuap6UN', msg1)
-        addr1 = '15hETetDmcXm1mM4sEf7U2KXC9hDHFMSzz'
+            #'L1TnU2zbNaAqMoVh65Cyvmcjzbrj41Gs9iTLcWbpJCMynXuap6UN', msg1)
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'ThcaCRjNUZoz2iBdr1jRKpY4wCJeTmNfcgr7i8cjq5YzRkJND5Cr', msg1)
+        #addr1 = '15hETetDmcXm1mM4sEf7U2KXC9hDHFMSzz'
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        addr1 = 'N1GbfJPCgzdKYJba93yggYURvP6GFAr31b'
         sig2 = sign_message_with_wif_privkey(
-            '5Hxn5C4SQuiV6e62A1MtZmbSeQyrLFhu5uYks62pU5VBUygK2KD', msg2)
-        addr2 = '1GPHVTY8UD9my6jyP4tb2TYJwUbDetyNC6'
+            #'5Hxn5C4SQuiV6e62A1MtZmbSeQyrLFhu5uYks62pU5VBUygK2KD', msg2)
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            '733VFFQ6j2tG7JJhJ9drASmiGM1C8sXS19EMYsoSA9qM9KD7Kx8', msg2)
+        #addr2 = '1GPHVTY8UD9my6jyP4tb2TYJwUbDetyNC6'
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        addr2 = 'NBxeh737PbFLVdzUetDAEyhDfhzGaNr6y6'
 
         sig1_b64 = base64.b64encode(sig1)
         sig2_b64 = base64.b64encode(sig2)
@@ -358,18 +366,34 @@ class Test_bitcoin(SequentialTestCase):
     def test_address_to_script(self):
         # bech32 native segwit
         # test vectors from BIP-0173
-        self.assertEqual(address_to_script('BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4'), '0014751e76e8199196d454941c45d1b3a323f1433bd6')
-        self.assertEqual(address_to_script('bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx'), '5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6')
-        self.assertEqual(address_to_script('BC1SW50QA3JX3S'), '6002751e')
-        self.assertEqual(address_to_script('bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj'), '5210751e76e8199196d454941c45d1b3a323')
+        #self.assertEqual(address_to_script('BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4'), '0014751e76e8199196d454941c45d1b3a323f1433bd6')
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('NC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KTTKKTK'), '0014751e76e8199196d454941c45d1b3a323f1433bd6')
+        #self.assertEqual(address_to_script('bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx'), '5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6')
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('nc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0x5ld6'), '5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6')
+        #self.assertEqual(address_to_script('BC1SW50QA3JX3S'), '6002751e')
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('NC1SW50Q8CTT4N'), '6002751e')
+        #self.assertEqual(address_to_script('bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj'), '5210751e76e8199196d454941c45d1b3a323')
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('nc1zw508d6qejxtdg4y5r3zarvaryvga4wry'), '5210751e76e8199196d454941c45d1b3a323')
 
         # base58 P2PKH
-        self.assertEqual(address_to_script('14gcRovpkCoGkCNBivQBvw7eso7eiNAbxG'), '76a91428662c67561b95c79d2257d2a93d9d151c977e9188ac')
-        self.assertEqual(address_to_script('1BEqfzh4Y3zzLosfGhw1AsqbEKVW6e1qHv'), '76a914704f4b81cadb7bf7e68c08cd3657220f680f863c88ac')
+        #self.assertEqual(address_to_script('14gcRovpkCoGkCNBivQBvw7eso7eiNAbxG'), '76a91428662c67561b95c79d2257d2a93d9d151c977e9188ac')
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('MzFydTRofatqGjcgzjim9TGZc2WhgadiiY'), '76a91428662c67561b95c79d2257d2a93d9d151c977e9188ac')
+        #self.assertEqual(address_to_script('1BEqfzh4Y3zzLosfGhw1AsqbEKVW6e1qHv'), '76a914704f4b81cadb7bf7e68c08cd3657220f680f863c88ac')
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('N6pCseC3TS6YsM8AYXFaPPzVxYtYykqDNn'), '76a914704f4b81cadb7bf7e68c08cd3657220f680f863c88ac')
 
         # base58 P2SH
-        self.assertEqual(address_to_script('35ZqQJcBQMZ1rsv8aSuJ2wkC7ohUCQMJbT'), 'a9142a84cf00d47f699ee7bbc1dea5ec1bdecb4ac15487')
-        self.assertEqual(address_to_script('3PyjzJ3im7f7bcV724GR57edKDqoZvH7Ji'), 'a914f47c8954e421031ad04ecd8e7752c9479206b9d387')
+        #self.assertEqual(address_to_script('35ZqQJcBQMZ1rsv8aSuJ2wkC7ohUCQMJbT'), 'a9142a84cf00d47f699ee7bbc1dea5ec1bdecb4ac15487')
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('6JGfHAzV5oG2QM2pmoZquwvV9qm1w9yv4A'), 'a9142a84cf00d47f699ee7bbc1dea5ec1bdecb4ac15487')
+        #self.assertEqual(address_to_script('3PyjzJ3im7f7bcV724GR57edKDqoZvH7Ji'), 'a914f47c8954e421031ad04ecd8e7752c9479206b9d387')
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('6cgZsAS2SZN895boDQvxx7pvMFuMDwGfzQ'), 'a914f47c8954e421031ad04ecd8e7752c9479206b9d387')
 
 
 class Test_bitcoin_testnet(TestCaseForTestnet):
@@ -377,8 +401,12 @@ class Test_bitcoin_testnet(TestCaseForTestnet):
     def test_address_to_script(self):
         # bech32 native segwit
         # test vectors from BIP-0173
-        self.assertEqual(address_to_script('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7'), '00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262')
-        self.assertEqual(address_to_script('tb1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy'), '0020000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433')
+        #self.assertEqual(address_to_script('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7'), '00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262')
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('tn1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qrd6us3'), '00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262')
+        #self.assertEqual(address_to_script('tb1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy'), '0020000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433')
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(address_to_script('tn1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvses0mjj3t'), '0020000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433')
 
         # base58 P2PKH
         self.assertEqual(address_to_script('mutXcGt1CJdkRvXuN2xoz2quAAQYQ59bRX'), '76a9149da64e300c5e4eb4aaffc9c2fd465348d5618ad488ac')
@@ -564,73 +592,120 @@ class Test_xprv_xpub_testnet(TestCaseForTestnet):
 class Test_keyImport(SequentialTestCase):
 
     priv_pub_addr = (
-           {'priv': 'KzMFjMC2MPadjvX5Cd7b8AKKjjpBSoRKUTpoAtN6B3J9ezWYyXS6',
-            'exported_privkey': 'p2pkh:KzMFjMC2MPadjvX5Cd7b8AKKjjpBSoRKUTpoAtN6B3J9ezWYyXS6',
+           #{'priv': 'KzMFjMC2MPadjvX5Cd7b8AKKjjpBSoRKUTpoAtN6B3J9ezWYyXS6',
+           # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+           {'priv': 'TgW3TjvoTPDnQqD1xZe2XDEegLG6rZX7wSDaGWP1hvVAJCs2h4zY',
+            #'exported_privkey': 'p2pkh:KzMFjMC2MPadjvX5Cd7b8AKKjjpBSoRKUTpoAtN6B3J9ezWYyXS6',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2pkh:TgW3TjvoTPDnQqD1xZe2XDEegLG6rZX7wSDaGWP1hvVAJCs2h4zY',
             'pub': '02c6467b7e621144105ed3e4835b0b4ab7e35266a2ae1c4f8baa19e9ca93452997',
-            'address': '17azqT8T16coRmWKYFj3UjzJuxiYrYFRBR',
+            #'address': '17azqT8T16coRmWKYFj3UjzJuxiYrYFRBR',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'address': 'N3AN36dRvUiMxJkpp53chG9DeC7bkEeUWm',
             'minikey' : False,
             'txin_type': 'p2pkh',
             'compressed': True,
             'addr_encoding': 'base58',
             'scripthash': 'c9aecd1fef8d661a42c560bf75c8163e337099800b8face5ca3d1393a30508a7'},
-           {'priv': 'p2pkh:Kzj8VjwpZ99bQqVeUiRXrKuX9mLr1o6sWxFMCBJn1umC38BMiQTD',
-            'exported_privkey': 'p2pkh:Kzj8VjwpZ99bQqVeUiRXrKuX9mLr1o6sWxFMCBJn1umC38BMiQTD',
+           #{'priv': 'p2pkh:Kzj8VjwpZ99bQqVeUiRXrKuX9mLr1o6sWxFMCBJn1umC38BMiQTD',
+           # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+           {'priv': 'p2pkh:TgsvE8gbf8nk5kBbEewyFNpr6MnmRZCfyve8HoKhYnxCgLUhiZbA',
+            #'exported_privkey': 'p2pkh:Kzj8VjwpZ99bQqVeUiRXrKuX9mLr1o6sWxFMCBJn1umC38BMiQTD',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2pkh:TgsvE8gbf8nk5kBbEewyFNpr6MnmRZCfyve8HoKhYnxCgLUhiZbA',
             'pub': '0352d78b4b37e0f6d4e164423436f2925fa57817467178eca550a88f2821973c41',
-            'address': '1GXgZ5Qi6gmXTHVSpUPZLy4Ci2nbfb3ZNb',
+            #'address': '1GXgZ5Qi6gmXTHVSpUPZLy4Ci2nbfb3ZNb',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'address': 'NC73kiuh24s5ypjx6Hi8ZVD7SGBedDE59n',
             'minikey': False,
             'txin_type': 'p2pkh',
             'compressed': True,
             'addr_encoding': 'base58',
             'scripthash': 'a9b2a76fc196c553b352186dfcca81fcf323a721cd8431328f8e9d54216818c1'},
-           {'priv': '5Hxn5C4SQuiV6e62A1MtZmbSeQyrLFhu5uYks62pU5VBUygK2KD',
-            'exported_privkey': 'p2pkh:5Hxn5C4SQuiV6e62A1MtZmbSeQyrLFhu5uYks62pU5VBUygK2KD',
+           #{'priv': '5Hxn5C4SQuiV6e62A1MtZmbSeQyrLFhu5uYks62pU5VBUygK2KD',
+           # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+           {'priv': '733VFFQ6j2tG7JJhJ9drASmiGM1C8sXS19EMYsoSA9qM9KD7Kx8',
+            #'exported_privkey': 'p2pkh:5Hxn5C4SQuiV6e62A1MtZmbSeQyrLFhu5uYks62pU5VBUygK2KD',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2pkh:733VFFQ6j2tG7JJhJ9drASmiGM1C8sXS19EMYsoSA9qM9KD7Kx8',
             'pub': '04e5fe91a20fac945845a5518450d23405ff3e3e1ce39827b47ee6d5db020a9075422d56a59195ada0035e4a52a238849f68e7a325ba5b2247013e0481c5c7cb3f',
-            'address': '1GPHVTY8UD9my6jyP4tb2TYJwUbDetyNC6',
+            #'address': '1GPHVTY8UD9my6jyP4tb2TYJwUbDetyNC6',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'address': 'NBxeh737PbFLVdzUetDAEyhDfhzGaNr6y6',
             'minikey': False,
             'txin_type': 'p2pkh',
             'compressed': False,
             'addr_encoding': 'base58',
             'scripthash': 'f5914651408417e1166f725a5829ff9576d0dbf05237055bf13abd2af7f79473'},
-           {'priv': 'p2pkh:5KhYQCe1xd5g2tqpmmGpUWDpDuTbA8vnpbiCNDwMPAx29WNQYfN',
-            'exported_privkey': 'p2pkh:5KhYQCe1xd5g2tqpmmGpUWDpDuTbA8vnpbiCNDwMPAx29WNQYfN',
+           #{'priv': 'p2pkh:5KhYQCe1xd5g2tqpmmGpUWDpDuTbA8vnpbiCNDwMPAx29WNQYfN',
+           # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+           {'priv': 'p2pkh:74nFaFygGkFT3Z4VuuYn5BQ5qqUvxkkKjqPo41hy5FJBox5FE9F',
+            #'exported_privkey': 'p2pkh:5KhYQCe1xd5g2tqpmmGpUWDpDuTbA8vnpbiCNDwMPAx29WNQYfN',
+            'exported_privkey': 'p2pkh:74nFaFygGkFT3Z4VuuYn5BQ5qqUvxkkKjqPo41hy5FJBox5FE9F',
             'pub': '048f0431b0776e8210376c81280011c2b68be43194cb00bd47b7e9aa66284b713ce09556cde3fee606051a07613f3c159ef3953b8927c96ae3dae94a6ba4182e0e',
-            'address': '147kiRHHm9fqeMQSgqf4k35XzuWLP9fmmS',
+            #'address': '147kiRHHm9fqeMQSgqf4k35XzuWLP9fmmS',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'address': 'Myh7v4nGgXmQAtewxeydxZESj8uPKQDk4L',
             'minikey': False,
             'txin_type': 'p2pkh',
             'compressed': False,
             'addr_encoding': 'base58',
             'scripthash': '6dd2e07ad2de9ba8eec4bbe8467eb53f8845acff0d9e6f5627391acc22ff62df'},
-           {'priv': 'LHJnnvRzsdrTX2j5QeWVsaBkabK7gfMNqNNqxnbBVRaJYfk24iJz',
-            'exported_privkey': 'p2wpkh-p2sh:Kz9XebiCXL2BZzhYJViiHDzn5iup1povWV8aqstzWU4sz1K5nVva',
+           #{'priv': 'LHJnnvRzsdrTX2j5QeWVsaBkabK7gfMNqNNqxnbBVRaJYfk24iJz',
+           # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+           {'priv': 'TyTaXKAmydVcBwR2Ab2wGd75XBm36RTBJLmd4Qc72JmKBt1HUzfj',
+            #'exported_privkey': 'p2wpkh-p2sh:Kz9XebiCXL2BZzhYJViiHDzn5iup1povWV8aqstzWU4sz1K5nVva',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2wpkh-p2sh:TgJKNzSydKfLEuPV4SF9gGv72KMjRauiyTXMwVuv3MFtdDbthb7K',
             'pub': '0279ad237ca0d812fb503ab86f25e15ebd5fa5dd95c193639a8a738dcd1acbad81',
-            'address': '3GeVJB3oKr7psgKR6BTXSxKtWUkfsHHhk7',
+            #'address': '3GeVJB3oKr7psgKR6BTXSxKtWUkfsHHhk7',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'address': '6VMKB3S71HpqR9S7HY85KxWBYWpDZsN3oi',
             'minikey': False,
             'txin_type': 'p2wpkh-p2sh',
             'compressed': True,
             'addr_encoding': 'base58',
             'scripthash': 'd7b04e882fa6b13246829ac552a2b21461d9152eb00f0a6adb58457a3e63d7c5'},
-           {'priv': 'p2wpkh-p2sh:L3CZH1pm87X4bbE6mSGvZnAZ1KcFDRomBudUkrkBG7EZhDtBVXMW',
-            'exported_privkey': 'p2wpkh-p2sh:L3CZH1pm87X4bbE6mSGvZnAZ1KcFDRomBudUkrkBG7EZhDtBVXMW',
+           #{'priv': 'p2wpkh-p2sh:L3CZH1pm87X4bbE6mSGvZnAZ1KcFDRomBudUkrkBG7EZhDtBVXMW',
+           # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+           {'priv': 'p2wpkh-p2sh:TjMM1QZYE7ADGVv3XNoMxq5swv4AdBuZet2FrUm6nzRaLSEj8ibm',
+            #'exported_privkey': 'p2wpkh-p2sh:L3CZH1pm87X4bbE6mSGvZnAZ1KcFDRomBudUkrkBG7EZhDtBVXMW',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2wpkh-p2sh:TjMM1QZYE7ADGVv3XNoMxq5swv4AdBuZet2FrUm6nzRaLSEj8ibm',
             'pub': '0229da20a15b3363b2c28e3c5093c180b56c439df0b968a970366bb1f38435361e',
-            'address': '3C79goMwT7zSTjXnPoCg6VFGAnUpZAkyus',
+            #'address': '3C79goMwT7zSTjXnPoCg6VFGAnUpZAkyus',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'address': '6QoyZfkF8ZhT1CeUb9sDyVRZCpYNG2YUkf',
             'minikey': False,
             'txin_type': 'p2wpkh-p2sh',
             'compressed': True,
             'addr_encoding': 'base58',
             'scripthash': '714bf6bfe1083e69539f40d4c7a7dca85d187471b35642e55f20d7e866494cf7'},
-           {'priv': 'L8g5V8kFFeg2WbecahRSdobARbHz2w2STH9S8ePHVSY4fmia7Rsj',
-            'exported_privkey': 'p2wpkh:Kz6SuyPM5VktY5dr2d2YqdVgBA6LCWkiHqXJaC3BzxnMPSUuYzmF',
+           #{'priv': 'L8g5V8kFFeg2WbecahRSdobARbHz2w2STH9S8ePHVSY4fmia7Rsj',
+           # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+           {'priv': 'TppsDXV2MeKBBWLZLdwt2rWVNBjuSh8EvFYDEGQD2Kj5JyzcnpZX',
+            #'exported_privkey': 'p2wpkh:Kz6SuyPM5VktY5dr2d2YqdVgBA6LCWkiHqXJaC3BzxnMPSUuYzmF',
+            # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2wpkh:TgFEeN88BVQ3CzKnnZYzEgR17kYFcGrWkov5fp47XqyN2esVd2r7',
             'pub': '03e9f948421aaa89415dc5f281a61b60dde12aae3181b3a76cd2d849b164fc6d0b',
-            'address': 'bc1qqmpt7u5e9hfznljta5gnvhyvfd2kdd0r90hwue',
+            #'address': 'bc1qqmpt7u5e9hfznljta5gnvhyvfd2kdd0r90hwue',
+            # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+            'address': 'nc1qqmpt7u5e9hfznljta5gnvhyvfd2kdd0rzrgfu6',
             'minikey': False,
             'txin_type': 'p2wpkh',
             'compressed': True,
             'addr_encoding': 'bech32',
             'scripthash': '1929acaaef3a208c715228e9f1ca0318e3a6b9394ab53c8d026137f847ecf97b'},
-           {'priv': 'p2wpkh:KyDWy5WbjLA58Zesh1o8m3pADGdJ3v33DKk4m7h8BD5zDKDmDFwo',
-            'exported_privkey': 'p2wpkh:KyDWy5WbjLA58Zesh1o8m3pADGdJ3v33DKk4m7h8BD5zDKDmDFwo',
+           #{'priv': 'p2wpkh:KyDWy5WbjLA58Zesh1o8m3pADGdJ3v33DKk4m7h8BD5zDKDmDFwo',
+           # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+           {'priv': 'p2wpkh:TfNJhUFNqKoDoULpSxKaA6jV9s5DTg8qgJ8qrji3i6GzrXU9Y8eR',
+            #'exported_privkey': 'p2wpkh:KyDWy5WbjLA58Zesh1o8m3pADGdJ3v33DKk4m7h8BD5zDKDmDFwo',
+            # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2wpkh:TfNJhUFNqKoDoULpSxKaA6jV9s5DTg8qgJ8qrji3i6GzrXU9Y8eR',
             'pub': '038c57657171c1f73e34d5b3971d05867d50221ad94980f7e87cbc2344425e6a1e',
-            'address': 'bc1qpakeeg4d9ydyjxd8paqrw4xy9htsg532xzxn50',
+            #'address': 'bc1qpakeeg4d9ydyjxd8paqrw4xy9htsg532xzxn50',
+            # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+            'address': 'nc1qpakeeg4d9ydyjxd8paqrw4xy9htsg532pwe55v',
             'minikey': False,
             'txin_type': 'p2wpkh',
             'compressed': True,
@@ -638,9 +713,13 @@ class Test_keyImport(SequentialTestCase):
             'scripthash': '242f02adde84ebb2a7dd778b2f3a81b3826f111da4d8960d826d7a4b816cb261'},
            # from http://bitscan.com/articles/security/spotlight-on-mini-private-keys
            {'priv': 'SzavMBLoXU6kDrqtUVmffv',
-            'exported_privkey': 'p2pkh:5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF',
+            #'exported_privkey': 'p2pkh:5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF',
+            # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+            'exported_privkey': 'p2pkh:74fqvPzpJogBoTuPmMS4h3Aex2VDNBMa1wC83fe4gTKoCmryopi',
             'pub': '04588d202afcc1ee4ab5254c7847ec25b9a135bbda0f2bc69ee1a714749fd77dc9f88ff2a00d7e752d44cbe16e1ebcf0890b76ec7c78886109dee76ccfc8445424',
-            'address': '1CC3X2gu58d6wXUWMffpuzN9JAfTUWu4Kj',
+            #'address': '1CC3X2gu58d6wXUWMffpuzN9JAfTUWu4Kj',
+            # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+            'address': 'N7mQigBszWifU4j1dUzQ8WX42Q4WLwogdP',
             'minikey': True,
             'txin_type': 'p2pkh',
             'compressed': False,  # this is actually ambiguous... issue #2748
