@@ -15,9 +15,9 @@ Electrum-NMC - Lightweight Namecoin client
 .. image:: https://coveralls.io/repos/github/namecoin/electrum-nmc/badge.svg?branch=master
     :target: https://coveralls.io/github/namecoin/electrum-nmc?branch=master
     :alt: Test coverage statistics
-.. image:: https://img.shields.io/badge/help-translating-blue.svg
+.. image:: https://d322cqt584bo4o.cloudfront.net/electrum/localized.svg
     :target: https://crowdin.com/project/electrum
-    :alt: Help translating Electrum online
+    :alt: Help translate Electrum online
 
 
 
