@@ -45,9 +45,9 @@
 
 import binascii
 
-# electrum.blockchain is an absolute import because cyclic imports must be
+# electrum_nmc.blockchain is an absolute import because cyclic imports must be
 # absolute prior to Python 3.5.
-import electrum.blockchain
+import electrum_nmc.blockchain
 from .bitcoin import hash_encode, hash_decode
 from .crypto import Hash
 from . import transaction
