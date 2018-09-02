@@ -356,7 +356,7 @@ class Abstract_Wallet(PrintError):
         addrs = self.get_receiving_addresses()
         if len(addrs) > 0:
             if not bitcoin.is_address(addrs[0]):
-                raise WalletFileException('The addresses in this wallet are not bitcoin addresses.')
+                raise WalletFileException('The addresses in this wallet are not namecoin addresses.')
 
     def synchronize(self):
         pass
@@ -1641,7 +1641,7 @@ class Abstract_Wallet(PrintError):
     def add_payment_request(self, req, config):
         addr = req['address']
         if not bitcoin.is_address(addr):
-            raise Exception(_('Invalid Bitcoin address.'))
+            raise Exception(_('Invalid Namecoin address.'))
         if not self.is_mine(addr):
             raise Exception(_('Address not in wallet.'))
 

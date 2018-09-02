@@ -63,7 +63,9 @@ class TestTransaction(SequentialTestCase):
         expected = {
             'inputs': [{
                 'type': 'p2pkh',
-                'address': '1446oU3z268EeFgfcwJv6X2VBXHfoYxfuD',
+                #'address': '1446oU3z268EeFgfcwJv6X2VBXHfoYxfuD',
+                # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+                'address': 'MydU17YxwUDoAnwAtkdVK3BPukgii28Tku',
                 'num_sig': 1,
                 'prevout_hash': '3140eb24b43386f35ba69e3875eb6c93130ac66201d01c58f598defc949a5c2a',
                 'prevout_n': 0,
@@ -74,7 +76,9 @@ class TestTransaction(SequentialTestCase):
                 'x_pubkeys': ['ff0488b21e03ef2afea18000000089689bff23e1e7fb2f161daa37270a97a3d8c2e537584b2d304ecb47b86d21fc021b010d3bd425f8cf2e04824bfdf1f1f5ff1d51fadd9a41f9e3fb8dd3403b1bfe00000000']}],
             'lockTime': 0,
             'outputs': [{
-                'address': '14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs',
+                #'address': '14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs',
+                # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+                'address': 'MymekE5Au7Q8MVKJZ19ERsnkRhNanZco6s',
                 'prevout_n': 0,
                 'scriptPubKey': '76a914230ac37834073a42146f11ef8414ae929feaafc388ac',
                 'type': TYPE_ADDRESS,
@@ -88,12 +92,22 @@ class TestTransaction(SequentialTestCase):
         self.assertEqual(tx.deserialize(), None)
 
         self.assertEqual(tx.as_dict(), {'hex': unsigned_blob, 'complete': False, 'final': True})
-        self.assertEqual(tx.get_outputs(), [('14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs', 1000000)])
-        self.assertEqual(tx.get_output_addresses(), ['14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs'])
+        #self.assertEqual(tx.get_outputs(), [('14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs', 1000000)])
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(tx.get_outputs(), [('MymekE5Au7Q8MVKJZ19ERsnkRhNanZco6s', 1000000)])
+        #self.assertEqual(tx.get_output_addresses(), ['14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs'])
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(tx.get_output_addresses(), ['MymekE5Au7Q8MVKJZ19ERsnkRhNanZco6s'])
 
-        self.assertTrue(tx.has_address('14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs'))
-        self.assertTrue(tx.has_address('1446oU3z268EeFgfcwJv6X2VBXHfoYxfuD'))
-        self.assertFalse(tx.has_address('1CQj15y1N7LDHp7wTt28eoD1QhHgFgxECH'))
+        #self.assertTrue(tx.has_address('14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertTrue(tx.has_address('MymekE5Au7Q8MVKJZ19ERsnkRhNanZco6s'))
+        #self.assertTrue(tx.has_address('1446oU3z268EeFgfcwJv6X2VBXHfoYxfuD'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertTrue(tx.has_address('MydU17YxwUDoAnwAtkdVK3BPukgii28Tku'))
+        #self.assertFalse(tx.has_address('1CQj15y1N7LDHp7wTt28eoD1QhHgFgxECH'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertFalse(tx.has_address('N7z6CjTzHVRmpMNSjhLhsKMv8vgj9DZvZV'))
 
         self.assertEqual(tx.serialize(), unsigned_blob)
 
@@ -117,7 +131,9 @@ class TestTransaction(SequentialTestCase):
                 'type': 'unknown'}],
             'lockTime': 0,
             'outputs': [{
-                'address': '14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs',
+                #'address': '14CHYaaByjJZpx4oHBpfDMdqhTyXnZ3kVs',
+                # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+                'address': 'MymekE5Au7Q8MVKJZ19ERsnkRhNanZco6s',
                 'prevout_n': 0,
                 'scriptPubKey': '76a914230ac37834073a42146f11ef8414ae929feaafc388ac',
                 'type': TYPE_ADDRESS,
@@ -143,10 +159,18 @@ class TestTransaction(SequentialTestCase):
 
     def test_estimated_output_size(self):
         estimated_output_size = transaction.Transaction.estimated_output_size
-        self.assertEqual(estimated_output_size('14gcRovpkCoGkCNBivQBvw7eso7eiNAbxG'), 34)
-        self.assertEqual(estimated_output_size('35ZqQJcBQMZ1rsv8aSuJ2wkC7ohUCQMJbT'), 32)
-        self.assertEqual(estimated_output_size('bc1q3g5tmkmlvxryhh843v4dz026avatc0zzr6h3af'), 31)
-        self.assertEqual(estimated_output_size('bc1qnvks7gfdu72de8qv6q6rhkkzu70fqz4wpjzuxjf6aydsx7wxfwcqnlxuv3'), 43)
+        #self.assertEqual(estimated_output_size('14gcRovpkCoGkCNBivQBvw7eso7eiNAbxG'), 34)
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(estimated_output_size('MzFydTRofatqGjcgzjim9TGZc2WhgadiiY'), 34)
+        #self.assertEqual(estimated_output_size('35ZqQJcBQMZ1rsv8aSuJ2wkC7ohUCQMJbT'), 32)
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(estimated_output_size('6JGfHAzV5oG2QM2pmoZquwvV9qm1w9yv4A'), 32)
+        #self.assertEqual(estimated_output_size('bc1q3g5tmkmlvxryhh843v4dz026avatc0zzr6h3af'), 31)
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(estimated_output_size('nc1q3g5tmkmlvxryhh843v4dz026avatc0zzykgka2'), 31)
+        #self.assertEqual(estimated_output_size('bc1qnvks7gfdu72de8qv6q6rhkkzu70fqz4wpjzuxjf6aydsx7wxfwcqnlxuv3'), 43)
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual(estimated_output_size('nc1qnvks7gfdu72de8qv6q6rhkkzu70fqz4wpjzuxjf6aydsx7wxfwcqlygsjk'), 43)
 
     # TODO other tests for segwit tx
     def test_tx_signed_segwit(self):
@@ -167,7 +191,9 @@ class TestTransaction(SequentialTestCase):
 
     def test_parse_xpub(self):
         res = xpubkey_to_address('fe4e13b0f311a55b8a5db9a32e959da9f011b131019d4cebe6141b9e2c93edcbfc0954c358b062a9f94111548e50bde5847a3096b8b7872dcffadb0e9579b9017b01000200')
-        self.assertEqual(res, ('04ee98d63800824486a1cf5b4376f2f574d86e0a3009a6448105703453f3368e8e1d8d090aaecdd626a45cc49876709a3bbb6dc96a4311b3cac03e225df5f63dfc', '19h943e4diLc68GXW7G75QNe2KWuMu7BaJ'))
+        #self.assertEqual(res, ('04ee98d63800824486a1cf5b4376f2f574d86e0a3009a6448105703453f3368e8e1d8d090aaecdd626a45cc49876709a3bbb6dc96a4311b3cac03e225df5f63dfc', '19h943e4diLc68GXW7G75QNe2KWuMu7BaJ'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual(res, ('04ee98d63800824486a1cf5b4376f2f574d86e0a3009a6448105703453f3368e8e1d8d090aaecdd626a45cc49876709a3bbb6dc96a4311b3cac03e225df5f63dfc', 'N5GWFh93Z6SAcfX2mvagHvXYkYuxHwmGpu'))
 
     def test_version_field(self):
         tx = transaction.Transaction(v2_blob)
@@ -180,18 +206,34 @@ class TestTransaction(SequentialTestCase):
 
         # bech32 native segwit
         # test vectors from BIP-0173
-        self.assertEqual((ADDR, 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'), addr_from_script('0014751e76e8199196d454941c45d1b3a323f1433bd6'))
-        self.assertEqual((ADDR, 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx'), addr_from_script('5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6'))
-        self.assertEqual((ADDR, 'bc1sw50qa3jx3s'), addr_from_script('6002751e'))
-        self.assertEqual((ADDR, 'bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj'), addr_from_script('5210751e76e8199196d454941c45d1b3a323'))
+        #self.assertEqual((ADDR, 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'), addr_from_script('0014751e76e8199196d454941c45d1b3a323f1433bd6'))
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, 'nc1qw508d6qejxtdg4y5r3zarvary0c5xw7kttkktk'), addr_from_script('0014751e76e8199196d454941c45d1b3a323f1433bd6'))
+        #self.assertEqual((ADDR, 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx'), addr_from_script('5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6'))
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, 'nc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0x5ld6'), addr_from_script('5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6'))
+        #self.assertEqual((ADDR, 'bc1sw50qa3jx3s'), addr_from_script('6002751e'))
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, 'nc1sw50q8ctt4n'), addr_from_script('6002751e'))
+        #self.assertEqual((ADDR, 'bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj'), addr_from_script('5210751e76e8199196d454941c45d1b3a323'))
+        # Converted to Namecoin using `contrib/convertBechAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, 'nc1zw508d6qejxtdg4y5r3zarvaryvga4wry'), addr_from_script('5210751e76e8199196d454941c45d1b3a323'))
 
         # base58 p2pkh
-        self.assertEqual((ADDR, '14gcRovpkCoGkCNBivQBvw7eso7eiNAbxG'), addr_from_script('76a91428662c67561b95c79d2257d2a93d9d151c977e9188ac'))
-        self.assertEqual((ADDR, '1BEqfzh4Y3zzLosfGhw1AsqbEKVW6e1qHv'), addr_from_script('76a914704f4b81cadb7bf7e68c08cd3657220f680f863c88ac'))
+        #self.assertEqual((ADDR, '14gcRovpkCoGkCNBivQBvw7eso7eiNAbxG'), addr_from_script('76a91428662c67561b95c79d2257d2a93d9d151c977e9188ac'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, 'MzFydTRofatqGjcgzjim9TGZc2WhgadiiY'), addr_from_script('76a91428662c67561b95c79d2257d2a93d9d151c977e9188ac'))
+        #self.assertEqual((ADDR, '1BEqfzh4Y3zzLosfGhw1AsqbEKVW6e1qHv'), addr_from_script('76a914704f4b81cadb7bf7e68c08cd3657220f680f863c88ac'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, 'N6pCseC3TS6YsM8AYXFaPPzVxYtYykqDNn'), addr_from_script('76a914704f4b81cadb7bf7e68c08cd3657220f680f863c88ac'))
 
         # base58 p2sh
-        self.assertEqual((ADDR, '35ZqQJcBQMZ1rsv8aSuJ2wkC7ohUCQMJbT'), addr_from_script('a9142a84cf00d47f699ee7bbc1dea5ec1bdecb4ac15487'))
-        self.assertEqual((ADDR, '3PyjzJ3im7f7bcV724GR57edKDqoZvH7Ji'), addr_from_script('a914f47c8954e421031ad04ecd8e7752c9479206b9d387'))
+        #self.assertEqual((ADDR, '35ZqQJcBQMZ1rsv8aSuJ2wkC7ohUCQMJbT'), addr_from_script('a9142a84cf00d47f699ee7bbc1dea5ec1bdecb4ac15487'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, '6JGfHAzV5oG2QM2pmoZquwvV9qm1w9yv4A'), addr_from_script('a9142a84cf00d47f699ee7bbc1dea5ec1bdecb4ac15487'))
+        #self.assertEqual((ADDR, '3PyjzJ3im7f7bcV724GR57edKDqoZvH7Ji'), addr_from_script('a914f47c8954e421031ad04ecd8e7752c9479206b9d387'))
+        # Converted to Namecoin using `contrib/convertAddress.py` from Namecoin Core.
+        self.assertEqual((ADDR, '6cgZsAS2SZN895boDQvxx7pvMFuMDwGfzQ'), addr_from_script('a914f47c8954e421031ad04ecd8e7752c9479206b9d387'))
 
 #####
 
