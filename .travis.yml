@@ -48,7 +48,7 @@ jobs:
         - docker
       install:
         - ./contrib/make_packages
-        - sudo docker build --no-cache -t electrum-android-builder-img electrum/gui/kivy/tools
+        - sudo docker build --no-cache -t electrum-android-builder-img electrum_nmc/gui/kivy/tools
       script:
         - sudo chown -R 1000:1000 .
         # Output something every minute or Travis kills the job

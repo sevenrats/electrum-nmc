@@ -1,6 +1,6 @@
 # Kivy GUI
 
-The Kivy GUI is used with Electrum on Android devices.
+The Kivy GUI is used with Electrum-NMC on Android devices.
 To generate an APK file, follow these instructions.
 
 ## Android binary with Docker
@@ -21,7 +21,7 @@ folder.
 2. Build image
 
     ```
-    $ sudo docker build -t electrum-android-builder-img electrum/gui/kivy/tools
+    $ sudo docker build -t electrum-android-builder-img electrum_nmc/gui/kivy/tools
     ```
 
 3. Prepare pure python dependencies
@@ -59,7 +59,7 @@ You probably need to clear the cache: `rm -rf .buildozer/android/platform/build/
 Assuming `adb` is installed:
 ```
 $ adb -d install -r bin/Electrum-*-debug.apk
-$ adb shell monkey -p org.electrum.electrum 1
+$ adb shell monkey -p org.namecoin.electrum-nmc.electrum-nmc 1
 ```
 
 
