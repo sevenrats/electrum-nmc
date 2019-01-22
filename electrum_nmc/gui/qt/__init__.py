@@ -54,7 +54,7 @@ try:
 except Exception as e:
     print(e)
     print("Error: Could not find icons file.")
-    print("Please run 'pyrcc5 icons.qrc -o electrum/gui/qt/icons_rc.py'")
+    print("Please run 'pyrcc5 icons.qrc -o electrum_nmc/gui/qt/icons_rc.py'")
     sys.exit(1)
 
 from .util import *   # * needed for plugins
@@ -185,7 +185,7 @@ class ElectrumGui(PrintError):
 
     def show_network_dialog(self, parent):
         if not self.daemon.network:
-            parent.show_warning(_('You are using Electrum in offline mode; restart Electrum if you want to get connected'), title=_('Offline'))
+            parent.show_warning(_('You are using Electrum-NMC in offline mode; restart Electrum-NMC if you want to get connected'), title=_('Offline'))
             return
         if self.nd:
             self.nd.on_update()

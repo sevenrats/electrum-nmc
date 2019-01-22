@@ -64,10 +64,10 @@ Factory.register('TabbedCarousel', module='electrum_nmc.gui.kivy.uix.screens')
 # inside markup.
 from kivy.core.text import Label
 Label.register('Roboto',
-               'electrum/gui/kivy/data/fonts/Roboto.ttf',
-               'electrum/gui/kivy/data/fonts/Roboto.ttf',
-               'electrum/gui/kivy/data/fonts/Roboto-Bold.ttf',
-               'electrum/gui/kivy/data/fonts/Roboto-Bold.ttf')
+               'electrum_nmc/gui/kivy/data/fonts/Roboto.ttf',
+               'electrum_nmc/gui/kivy/data/fonts/Roboto.ttf',
+               'electrum_nmc/gui/kivy/data/fonts/Roboto-Bold.ttf',
+               'electrum_nmc/gui/kivy/data/fonts/Roboto-Bold.ttf')
 
 
 from electrum_nmc.util import (base_units, NoDynamicFeeEstimates, decimal_point_to_base_unit_name,
@@ -384,7 +384,7 @@ class ElectrumWindow(App):
         memo = req.get('memo')
         amount = req.get('amount')
         fund = req.get('fund')
-        popup = Builder.load_file('electrum/gui/kivy/uix/ui_screens/invoice.kv')
+        popup = Builder.load_file('electrum_nmc/gui/kivy/uix/ui_screens/invoice.kv')
         popup.is_invoice = is_invoice
         popup.amount = amount
         popup.requestor = requestor if is_invoice else req.get('address')
@@ -403,7 +403,7 @@ class ElectrumWindow(App):
         from electrum_nmc.util import format_time
         fund = req.get('fund')
         isaddr = 'y'
-        popup = Builder.load_file('electrum/gui/kivy/uix/ui_screens/invoice.kv')
+        popup = Builder.load_file('electrum_nmc/gui/kivy/uix/ui_screens/invoice.kv')
         popup.isaddr = isaddr
         popup.is_invoice = False
         popup.status = status
@@ -463,7 +463,7 @@ class ElectrumWindow(App):
         currentActivity.startActivity(it)
 
     def build(self):
-        return Builder.load_file('electrum/gui/kivy/main.kv')
+        return Builder.load_file('electrum_nmc/gui/kivy/main.kv')
 
     def _pause(self):
         if platform == 'android':
@@ -619,7 +619,7 @@ class ElectrumWindow(App):
             d = WalletDialog()
             d.open()
         elif name == 'status':
-            popup = Builder.load_file('electrum/gui/kivy/uix/ui_screens/'+name+'.kv')
+            popup = Builder.load_file('electrum_nmc/gui/kivy/uix/ui_screens/'+name+'.kv')
             master_public_keys_layout = popup.ids.master_public_keys
             for xpub in self.wallet.get_master_public_keys()[1:]:
                 master_public_keys_layout.add_widget(TopLabel(text=_('Master Public Key')))
@@ -629,7 +629,7 @@ class ElectrumWindow(App):
                 master_public_keys_layout.add_widget(ref)
             popup.open()
         else:
-            popup = Builder.load_file('electrum/gui/kivy/uix/ui_screens/'+name+'.kv')
+            popup = Builder.load_file('electrum_nmc/gui/kivy/uix/ui_screens/'+name+'.kv')
             popup.open()
 
     @profiler
@@ -783,8 +783,8 @@ class ElectrumWindow(App):
                 from plyer import notification
             icon = (os.path.dirname(os.path.realpath(__file__))
                     + '/../../' + self.icon)
-            notification.notify('Electrum', message,
-                            app_icon=icon, app_name='Electrum')
+            notification.notify('Electrum-NMC', message,
+                            app_icon=icon, app_name='Electrum-NMC')
         except ImportError:
             Logger.Error('Notification: needs plyer; `sudo python3 -m pip install plyer`')
 
@@ -820,7 +820,7 @@ class ElectrumWindow(App):
         self.send_payment(address, amount=amount, label=label, message=message)
 
     def show_error(self, error, width='200dp', pos=None, arrow_pos=None,
-        exit=False, icon='atlas://electrum/gui/kivy/theming/light/error', duration=0,
+        exit=False, icon='atlas://electrum_nmc/gui/kivy/theming/light/error', duration=0,
         modal=False):
         ''' Show an error Message Bubble.
         '''
@@ -832,7 +832,7 @@ class ElectrumWindow(App):
         exit=False, duration=0, modal=False):
         ''' Show an Info Message Bubble.
         '''
-        self.show_error(error, icon='atlas://electrum/gui/kivy/theming/light/important',
+        self.show_error(error, icon='atlas://electrum_nmc/gui/kivy/theming/light/important',
             duration=duration, modal=modal, exit=exit, pos=pos,
             arrow_pos=arrow_pos)
 
@@ -872,7 +872,7 @@ class ElectrumWindow(App):
             info_bubble.show_arrow = False
             img.allow_stretch = True
             info_bubble.dim_background = True
-            info_bubble.background_image = 'atlas://electrum/gui/kivy/theming/light/card'
+            info_bubble.background_image = 'atlas://electrum_nmc/gui/kivy/theming/light/card'
         else:
             info_bubble.fs = False
             info_bubble.icon = icon

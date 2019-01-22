@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pushd ./electrum/gui/kivy/
+pushd ./electrum_nmc/gui/kivy/
 
 make theming
 
