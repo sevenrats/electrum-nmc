@@ -38,8 +38,7 @@ USER_ROLE_VALUE = 2
 # TODO: It'd be nice if we could further reduce code duplication against
 # UTXOList.
 class UNOList(UTXOList):
-    # TODO: fix this for UNOList
-    filter_columns = [0, 2]  # Address, Label
+    filter_columns = [0, 1]  # Name, Value
 
     def __init__(self, parent=None):
         MyTreeWidget.__init__(self, parent, self.create_menu, [ _('Name'), _('Value'), _('Expires In'), _('Status')], 1)
