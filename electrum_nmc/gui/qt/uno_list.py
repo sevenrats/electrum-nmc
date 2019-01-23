@@ -40,20 +40,16 @@ USER_ROLE_VALUE = 2
 class UNOList(UTXOList):
     filter_columns = [0, 1]  # Name, Value
 
-    def __init__(self, parent=None):
-        MyTreeWidget.__init__(self, parent, self.create_menu, [ _('Name'), _('Value'), _('Expires In'), _('Status')], 1)
-        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.setSortingEnabled(True)
-
-    def on_update(self):
+    def update(self):
         self.wallet = self.parent.wallet
         self.network = self.parent.network
-        item = self.currentItem()
-        self.clear()
-        self.utxos = self.wallet.get_utxos()
-        for x in self.utxos:
-            txid = x['prevout_hash']
-            vout = x['prevout_n']
+        utxos = self.wallet.get_utxos()
+        self.utxo_dict = {}
+        self.model().clear()
+        self.update_headers([ _('Name'), _('Value'), _('Expires In'), _('Status')])
+        for idx, x in enumerate(utxos):
+            txid = x.get('prevout_hash')
+            vout = x.get('prevout_n')
             name_op = self.wallet.transactions[txid].outputs()[vout].name_op
             if name_op is None:
                 continue
@@ -77,21 +73,28 @@ class UNOList(UTXOList):
 
             status = '' if expires_in is not None else _('Update Pending')
 
-            utxo_item = SortableTreeWidgetItem([formatted_name, formatted_value, formatted_expires_in, status])
-            utxo_item.setFont(0, QFont(MONOSPACE_FONT))
-            utxo_item.setFont(1, QFont(MONOSPACE_FONT))
+            txout = txid + ":%d"%vout
 
-            utxo_item.setData(0, Qt.UserRole, self.get_name(x))
-            utxo_item.setData(0, Qt.UserRole + USER_ROLE_NAME, name)
-            utxo_item.setData(0, Qt.UserRole + USER_ROLE_VALUE, value)
+            self.utxo_dict[txout] = x
+
+            labels = [formatted_name, formatted_value, formatted_expires_in, status]
+            utxo_item = [QStandardItem(x) for x in labels]
+            self.set_editability(utxo_item)
+
+            utxo_item[0].setFont(QFont(MONOSPACE_FONT))
+            utxo_item[1].setFont(QFont(MONOSPACE_FONT))
+
+            utxo_item[0].setData(txout, Qt.UserRole)
+            utxo_item[0].setData(name, Qt.UserRole + USER_ROLE_NAME)
+            utxo_item[0].setData(value, Qt.UserRole + USER_ROLE_VALUE)
 
             address = x.get('address')
             if self.wallet.is_frozen(address):
                 utxo_item.setBackground(0, ColorScheme.BLUE.as_color(True))
-            self.addChild(utxo_item)
+            self.model().insertRow(idx, utxo_item)
 
     def create_menu(self, position):
-        selected = [x.data(0, Qt.UserRole) for x in self.selectedItems()]
+        selected = self.selected_column_0_user_roles()
         if not selected:
             return
         menu = QMenu()
@@ -101,8 +104,9 @@ class UNOList(UTXOList):
             txid = selected[0].split(':')[0]
             tx = self.wallet.transactions.get(txid)
             if tx:
+                label = self.wallet.get_label(txid) or None # Prefer None if empty (None hides the Description: field in the window)
                 menu.addAction(_("Configure"), lambda: self.configure_selected_item())
-                menu.addAction(_("Transaction Details"), lambda: self.parent.show_transaction(tx))
+                menu.addAction(_("Transaction Details"), lambda: self.parent.show_transaction(tx, label))
 
         menu.exec_(self.viewport().mapToGlobal(position))
 
