@@ -713,7 +713,7 @@ class Abstract_Wallet(AddressSynchronizer):
             tx = coin_chooser.make_tx(coins, txi, outputs[:] + txo, change_addrs[:max_change],
                                       fee_estimator, self.dust_threshold(), name_coins=name_inputs)
         else:
-            inputs = name_inputs + inputs
+            coins = name_inputs + coins
             # FIXME?? this might spend inputs with negative effective value...
             sendable = sum(map(lambda x:x['value'], coins))
             outputs[i_max] = outputs[i_max]._replace(value=0)
