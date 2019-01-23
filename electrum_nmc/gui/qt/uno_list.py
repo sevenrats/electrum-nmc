@@ -114,7 +114,7 @@ class UNOList(UTXOList):
     # be used for all name_update calls.  That way, we wouldn't need to prompt
     # the user per name.
     def renew_selected_items(self):
-        selected = [x.data(0, Qt.UserRole + USER_ROLE_NAME) for x in self.selectedItems()]
+        selected = self.selected_in_column(0)
         if not selected:
             return
 
@@ -122,7 +122,9 @@ class UNOList(UTXOList):
         broadcast = self.parent.console.namespace.get('broadcast')
         addtransaction = self.parent.console.namespace.get('addtransaction')
 
-        for identifier in selected:
+        for item in selected:
+            identifier = item.data(Qt.UserRole + USER_ROLE_NAME)
+
             try:
                 # TODO: support non-ASCII encodings
                 tx = name_update(identifier.decode('ascii'))['hex']
@@ -150,13 +152,16 @@ class UNOList(UTXOList):
                 continue
 
     def configure_selected_item(self):
-        selected = [(x.data(0, Qt.UserRole + USER_ROLE_NAME), x.data(0, Qt.UserRole + USER_ROLE_VALUE)) for x in self.selectedItems()]
+        selected = self.selected_in_column(0)
         if not selected:
             return
         if len(selected) != 1:
             return
 
-        identifier, initial_value = selected[0]
+        item = selected[0]
+
+        identifier = item.data(Qt.UserRole + USER_ROLE_NAME)
+        initial_value = item.data(Qt.UserRole + USER_ROLE_VALUE)
 
         show_configure_name(identifier, initial_value, self.parent, False)
 
