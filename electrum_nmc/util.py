@@ -148,7 +148,7 @@ class Satoshis(object):
         return 'Satoshis(%d)'%self.value
 
     def __str__(self):
-        return format_satoshis(self.value) + " BTC"
+        return format_satoshis(self.value) + " NMC"
 
     def __eq__(self, other):
         return self.value == other.value
