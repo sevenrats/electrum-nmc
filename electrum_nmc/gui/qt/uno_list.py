@@ -90,7 +90,7 @@ class UNOList(UTXOList):
 
             address = x.get('address')
             if self.wallet.is_frozen(address):
-                utxo_item.setBackground(0, ColorScheme.BLUE.as_color(True))
+                utxo_item[0].setBackground(ColorScheme.BLUE.as_color(True))
             self.model().appendRow(utxo_item)
 
     def create_menu(self, position):
