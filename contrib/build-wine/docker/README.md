@@ -44,9 +44,9 @@ folder.
     $ git checkout $REV
     $ sudo docker run -it \
         --name electrum-wine-builder-cont \
-        -v $PWD:/opt/wine64/drive_c/electrum_nmc \
+        -v $PWD:/opt/wine64/drive_c/electrum-nmc \
         --rm \
-        --workdir /opt/wine64/drive_c/electrum_nmc/contrib/build-wine \
+        --workdir /opt/wine64/drive_c/electrum-nmc/contrib/build-wine \
         electrum-wine-builder-img \
         ./build.sh
     ```
