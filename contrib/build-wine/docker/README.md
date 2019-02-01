@@ -35,8 +35,8 @@ folder.
         rm -rf $FRESH_CLONE && \
         mkdir -p $FRESH_CLONE && \
         cd $FRESH_CLONE  && \
-        git clone https://github.com/spesmilo/electrum.git && \
-        cd electrum
+        git clone https://github.com/namecoin/electrum-nmc.git && \
+        cd electrum-nmc
     ```
 
     And then build from this directory:
@@ -44,9 +44,9 @@ folder.
     $ git checkout $REV
     $ sudo docker run -it \
         --name electrum-wine-builder-cont \
-        -v $PWD:/opt/wine64/drive_c/electrum \
+        -v $PWD:/opt/wine64/drive_c/electrum_nmc \
         --rm \
-        --workdir /opt/wine64/drive_c/electrum/contrib/build-wine \
+        --workdir /opt/wine64/drive_c/electrum_nmc/contrib/build-wine \
         electrum-wine-builder-img \
         ./build.sh
     ```
@@ -60,10 +60,10 @@ Note: the `setup` binary (NSIS installer) is not deterministic yet.
 Code Signing
 ============
 
-Electrum Windows builds are signed with a Microsoft Authenticode™ code signing
+Electrum-NMC Windows builds are signed with a Microsoft Authenticode™ code signing
 certificate in addition to the GPG-based signatures.
 
-The advantage of using Authenticode is that Electrum users won't receive a 
+The advantage of using Authenticode is that Electrum-NMC users won't receive a 
 Windows SmartScreen warning when starting it.
 
 The release signing procedure involves a signer (the holder of the
