@@ -41,6 +41,7 @@ from .bitcoin import is_address,  hash_160, COIN, TYPE_ADDRESS
 from . import bip32
 from .i18n import _
 from .names import build_name_new, name_expires_in, name_identifier_to_scripthash, OP_NAME_FIRSTUPDATE, OP_NAME_UPDATE, validate_value_length
+from .verifier import verify_tx_is_in_block
 from .transaction import Transaction, multisig_script, TxOutput
 from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .synchronizer import Notifier
@@ -1028,7 +1029,7 @@ class Commands:
             fee_level = Decimal(fee_level)
         return self.config.fee_per_kb(dyn=dyn, mempool=mempool, fee_level=fee_level)
 
-    @command('wn')
+    @command('n')
     def name_show(self, identifier):
         # TODO: support non-ASCII encodings
         identifier_bytes = identifier.encode("ascii")
@@ -1059,9 +1060,19 @@ class Commands:
             if height < constants.net.max_checkpoint():
                 self.network.run_from_another_thread(self.network.request_chunk(height, None))
 
-        # TODO: This will write data to the wallet, which may be a privacy
-        # leak.  We should allow a null wallet to be used.
-        self.network.run_from_another_thread(self.wallet.verifier._request_and_verify_single_proof(txid, height))
+        # (from verifier._request_and_verify_single_proof)
+        merkle = self.network.run_from_another_thread(self.network.get_merkle_for_transaction(txid, height))
+        if height != merkle.get('block_height'):
+            raise Exception('requested height {} differs from received height {} for txid {}'
+                            .format(height, merkle.get('block_height'), txid))
+        pos = merkle.get('pos')
+        merkle_branch = merkle.get('merkle')
+        async def wait_for_header():
+            # we need to wait if header sync/reorg is still ongoing, hence lock:
+            async with self.network.bhi_lock:
+                return self.network.blockchain().read_header(height)
+        header = self.network.run_from_another_thread(wait_for_header())
+        verify_tx_is_in_block(txid, merkle_branch, pos, header, height)
 
         # The txid is now verified to come from a safe height in the blockchain.
 
@@ -1093,6 +1104,10 @@ class Commands:
                     # the tx is now verified to represent the identifier at a
                     # safe height in the blockchain
 
+                    is_mine = None
+                    if self.wallet:
+                        is_mine = self.wallet.is_mine(o.address)
+
                     return {
                         "name": o.name_op["name"].decode("ascii"),
                         "name_encoding": "ascii",
@@ -1104,7 +1119,7 @@ class Commands:
                         "height": height,
                         "expires_in": name_expires_in(height, chain_height),
                         "expired": False,
-                        "ismine": self.wallet.is_mine(o.address),
+                        "ismine": is_mine,
                     }
 
         raise Exception("missing name op")
