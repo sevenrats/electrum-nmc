@@ -413,17 +413,6 @@ class Interface(PrintError):
         if can_return_early and index in self._requested_chunks:
             return
 
-        # There's a special case where we're trying to request the first chunk
-        # after the checkpoint, and we don't have the last checkpointed chunk
-        # in order to compute the target for the new chunk.  We handle that
-        # here by requesting the previous chunk first.
-        cp_height = constants.net.max_checkpoint()
-        if index * 2016 > cp_height and (index-1) * 2016 <= cp_height:
-            try:
-                self.blockchain.get_target(index-1)
-            except blockchain.MissingHeader:
-                await self.request_chunk(height-2016, tip)
-
         self.print_error("requesting chunk from height {}".format(height))
         size = 2016
         if tip is not None:
