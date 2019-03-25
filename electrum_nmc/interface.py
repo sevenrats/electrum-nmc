@@ -37,6 +37,7 @@ import certifi
 
 from .util import PrintError, ignore_exceptions, log_exceptions, bfh, SilentTaskGroup
 from . import util
+from .crypto import sha256d
 from . import x509
 from . import pem
 from . import version
@@ -374,22 +375,64 @@ class Interface(PrintError):
         except ValueError:
             return None
 
-    async def get_block_header(self, height, assert_mode):
+    # Run manually from console to generate blockchain checkpoints.
+    # Only use this with a server that you trust!
+    async def get_purported_checkpoint(self, cp_height):
+        # use lower timeout as we usually have network.bhi_lock here
+        timeout = self.network.get_network_timeout_seconds(NetworkTimeout.Urgent)
+
+        retarget_first_height = cp_height // 2016 * 2016
+        retarget_last_height = (cp_height+1) // 2016 * 2016 - 1
+        retarget_last_chunk_index = (cp_height+1) // 2016 - 1
+
+        res = await self.session.send_request('blockchain.block.header', [retarget_first_height, cp_height], timeout=timeout)
+
+        if 'root' in res and 'branch' in res and 'header' in res:
+            retarget_first_header = blockchain.deserialize_header(bytes.fromhex(res['header']), retarget_first_height)
+            retarget_last_chainwork = self.blockchain.get_chainwork(retarget_last_height)
+            retarget_last_bits = self.blockchain.target_to_bits(self.blockchain.get_target(retarget_last_chunk_index))
+
+            return {'height': cp_height, 'merkle_root': res['root'],
+                    'first_timestamp': retarget_first_header['timestamp'],
+                    'last_chainwork': retarget_last_chainwork,
+                    'last_bits': retarget_last_bits}
+        else:
+            raise Exception("Expected checkpoint validation data, did not receive it.")
+
+    async def get_block_header(self, height, assert_mode, must_provide_proof=False):
         self.print_error('requesting block header {} in mode {}'.format(height, assert_mode))
         # use lower timeout as we usually have network.bhi_lock here
         timeout = self.network.get_network_timeout_seconds(NetworkTimeout.Urgent)
+
         cp_height = constants.net.max_checkpoint()
         if height > cp_height:
+            if must_provide_proof:
+                raise Exception("Can't request a checkpoint proof because requested height is above checkpoint height")
             cp_height = 0
+
         res = await self.session.send_request('blockchain.block.header', [height, cp_height], timeout=timeout)
-        if cp_height != 0:
-            res = res["header"]
-        return blockchain.deserialize_header(bytes.fromhex(res), height)
+
+        proof_was_provided = False
+        hexheader = None
+        if 'root' in res and 'branch' in res and 'header' in res:
+            if cp_height == 0:
+                raise Exception("Received checkpoint validation data even though it wasn't requested.")
+
+            hexheader = res["header"]
+            self.validate_checkpoint_result(res["root"], res["branch"], hexheader, height)
+            proof_was_provided = True
+        elif cp_height != 0:
+            raise Exception("Expected checkpoint validation data, did not receive it.")
+        else:
+            hexheader = res
+
+        return blockchain.deserialize_header(bytes.fromhex(hexheader), height), proof_was_provided
 
     async def request_chunk(self, height, tip=None, *, can_return_early=False):
         index = height // 2016
         if can_return_early and index in self._requested_chunks:
             return
+
         self.print_error("requesting chunk from height {}".format(height))
         size = 2016
         if tip is not None:
@@ -400,14 +443,71 @@ class Interface(PrintError):
             if index * 2016 + size - 1 > cp_height:
                 cp_height = 0
             self._requested_chunks.add(index)
-            res = await self.session.send_request('blockchain.block.headers', [index * 2016, size, cp_height])
+            res, proof_was_provided = await self.request_headers(index * 2016, size)
         finally:
             try: self._requested_chunks.remove(index)
             except KeyError: pass
-        conn = self.blockchain.connect_chunk(index, res['hex'])
+        conn = self.blockchain.connect_chunk(index, res['hex'], proof_was_provided)
         if not conn:
             return conn, 0
         return conn, res['count']
+
+    async def request_headers(self, height, count):
+        if count > 2016:
+            raise Exception("Server does not support requesting more than 2016 consecutive headers")
+
+        top_height = height + count - 1
+        cp_height = constants.net.max_checkpoint()
+        if top_height > cp_height:
+            cp_height = 0
+
+        res = await self.session.send_request('blockchain.block.headers', [height, count, cp_height])
+
+        header_hexsize = 80 * 2
+        hexdata = res['hex']
+        actual_header_count = len(hexdata) // header_hexsize
+        # We accept less headers than we asked for, to cover the case where the distance to the tip was unknown.
+        if actual_header_count > count:
+            raise Exception("chunk data size incorrect expected_size={} actual_size={}".format(count * header_hexsize, len(hexdata)))
+
+        proof_was_provided = False
+        if 'root' in res and 'branch' in res:
+            if cp_height == 0:
+                raise Exception("Received checkpoint validation data even though it wasn't requested.")
+
+            header_height = height + actual_header_count - 1
+            header_offset = (actual_header_count - 1) * header_hexsize
+            header = hexdata[header_offset : header_offset + header_hexsize]
+            self.validate_checkpoint_result(res["root"], res["branch"], header, header_height)
+
+            data = bfh(hexdata)
+            blockchain.verify_proven_chunk(height, data)
+
+            proof_was_provided = True
+        elif cp_height != 0:
+            raise Exception("Expected checkpoint validation data, did not receive it.")
+
+        return res, proof_was_provided
+
+    def validate_checkpoint_result(self, merkle_root, merkle_branch, header, header_height):
+        '''
+        header: hex representation of the block header.
+        merkle_root: hex representation of the server's calculated merkle root.
+        branch: list of hex representations of the server's calculated merkle root branches.
+
+        Returns a boolean to represent whether the server's proof is correct.
+        '''
+        received_merkle_root = bytes(reversed(bfh(merkle_root)))
+        expected_merkle_root = bytes(reversed(bfh(constants.net.VERIFICATION_BLOCK_MERKLE_ROOT)))
+
+        if received_merkle_root != expected_merkle_root:
+            raise Exception("Sent unexpected merkle root, expected: {}, got: {}".format(constants.net.VERIFICATION_BLOCK_MERKLE_ROOT, merkle_root))
+
+        header_hash = sha256d(bfh(header))
+        byte_branches = [ bytes(reversed(bfh(v))) for v in merkle_branch ]
+        proven_merkle_root = blockchain.root_from_proof(header_hash, byte_branches, header_height)
+        if proven_merkle_root != expected_merkle_root:
+            raise Exception("Sent incorrect merkle branch, expected: {}, proved: {}".format(constants.net.VERIFICATION_BLOCK_MERKLE_ROOT, util.hfu(reversed(proven_merkle_root))))
 
     async def open_session(self, sslc, exit_early=False):
         async with aiorpcx.Connector(NotificationSession,
@@ -501,8 +601,9 @@ class Interface(PrintError):
 
     async def step(self, height, header=None):
         assert 0 <= height <= self.tip, (height, self.tip)
+        proof_was_provided = False
         if header is None:
-            header = await self.get_block_header(height, 'catchup')
+            header, proof_was_provided = await self.get_block_header(height, 'catchup')
 
         chain = blockchain.check_header(header) if 'mock' not in header else header['mock']['check'](header)
         if chain:
@@ -513,12 +614,12 @@ class Interface(PrintError):
             # this situation resolves itself on the next block
             return 'catchup', height+1
 
-        can_connect = blockchain.can_connect(header) if 'mock' not in header else header['mock']['connect'](height)
+        can_connect = blockchain.can_connect(header, proof_was_provided=proof_was_provided) if 'mock' not in header else header['mock']['connect'](height)
         if not can_connect:
             self.print_error("can't connect", height)
-            height, header, bad, bad_header = await self._search_headers_backwards(height, header)
+            height, header, bad, bad_header, proof_was_provided = await self._search_headers_backwards(height, header)
             chain = blockchain.check_header(header) if 'mock' not in header else header['mock']['check'](header)
-            can_connect = blockchain.can_connect(header) if 'mock' not in header else header['mock']['connect'](height)
+            can_connect = blockchain.can_connect(header, proof_was_provided=proof_was_provided) if 'mock' not in header else header['mock']['connect'](height)
             assert chain or can_connect
         if can_connect:
             self.print_error("could connect", height)
@@ -541,7 +642,7 @@ class Interface(PrintError):
             assert good < bad, (good, bad)
             height = (good + bad) // 2
             self.print_error("binary step. good {}, bad {}, height {}".format(good, bad, height))
-            header = await self.get_block_header(height, 'binary')
+            header, proof_was_provided = await self.get_block_header(height, 'binary')
             chain = blockchain.check_header(header) if 'mock' not in header else header['mock']['check'](header)
             if chain:
                 self.blockchain = chain if isinstance(chain, Blockchain) else self.blockchain
@@ -586,14 +687,14 @@ class Interface(PrintError):
 
     async def _search_headers_backwards(self, height, header):
         async def iterate():
-            nonlocal height, header
+            nonlocal height, header, proof_was_provided
             checkp = False
             if height <= constants.net.max_checkpoint():
                 height = constants.net.max_checkpoint()
                 checkp = True
-            header = await self.get_block_header(height, 'backward')
+            header, proof_was_provided = await self.get_block_header(height, 'backward')
             chain = blockchain.check_header(header) if 'mock' not in header else header['mock']['check'](header)
-            can_connect = blockchain.can_connect(header) if 'mock' not in header else header['mock']['connect'](height)
+            can_connect = blockchain.can_connect(header, proof_was_provided=proof_was_provided) if 'mock' not in header else header['mock']['connect'](height)
             if chain or can_connect:
                 return False
             if checkp:
@@ -605,6 +706,7 @@ class Interface(PrintError):
         with blockchain.blockchains_lock: chains = list(blockchain.blockchains.values())
         local_max = max([0] + [x.height() for x in chains]) if 'mock' not in header else float('inf')
         height = min(local_max + 1, height - 1)
+        proof_was_provided = False
         while await iterate():
             bad, bad_header = height, header
             delta = self.tip - height
@@ -612,7 +714,7 @@ class Interface(PrintError):
 
         _assert_header_does_not_check_against_any_chain(bad_header)
         self.print_error("exiting backward mode at", height)
-        return height, header, bad, bad_header
+        return height, header, bad, bad_header, proof_was_provided
 
 
 def _assert_header_does_not_check_against_any_chain(header: dict) -> None:
