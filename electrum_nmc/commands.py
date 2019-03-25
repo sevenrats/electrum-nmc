@@ -896,7 +896,7 @@ class Commands:
         }
         if not self.wallet.queue_transaction(txid, queue_item):
             return False
-        self.wallet.save_transactions()
+        self.wallet.storage.write()
         return txid
 
     @command('wn')
@@ -941,7 +941,7 @@ class Commands:
 
         for txid in to_unqueue:
             self.wallet.unqueue_transaction(txid)
-        self.wallet.save_transactions()
+        self.wallet.storage.write()
 
         success = (errors == {})
         return success, errors
