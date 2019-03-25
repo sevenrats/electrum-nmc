@@ -292,7 +292,7 @@ class Blockchain(util.PrintError):
         start_height = index * 2016
         prev_hash = self.get_hash(start_height - 1)
         target = self.get_target(index-1)
-        for i, header in enumerate(chunk.deserialized_headers)
+        for i, header in enumerate(chunk.deserialized_headers):
             height = start_height + i
             try:
                 expected_header_hash = self.get_hash(height)
