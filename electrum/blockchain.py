@@ -579,7 +579,7 @@ class Blockchain(util.PrintError):
         assert idx >= 0, idx
         try:
             data = bfh(hexdata)
-            start_height = index * 2016
+            start_height = idx * 2016
             chunk = HeaderChunk(start_height, data)
             if not proof_was_provided:
                 self.verify_chunk(idx, chunk)
