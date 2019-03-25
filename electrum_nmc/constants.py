@@ -60,7 +60,7 @@ class BitcoinMainnet(AbstractNet):
     # import asyncio
     # asyncio.run(network.interface.get_purported_checkpoint(height))
     VERIFICATION_BLOCK_MERKLE_ROOT = "4c6b8a34ed0ab02ef9486d0f57de24ee367e4c1735c20f7b3a79927b62310fc3"
-    VERIFICATION_BLOCK_HEIGHT = 558431
+    VERIFICATION_BLOCK_HEIGHT = 0
     # Timestamp of height // 2016 * 2016
     VERIFICATION_BLOCK_FIRST_TIMESTAMP = 1546276809
     # Chainwork of (height + 1) // 2016 * 2016 - 1
@@ -98,7 +98,7 @@ class BitcoinTestnet(AbstractNet):
     DEFAULT_PORTS = {'t': '51001', 's': '51002'}
     DEFAULT_SERVERS = read_json('servers_testnet.json', {})
     VERIFICATION_BLOCK_MERKLE_ROOT = "09006bcaf5d043502ef50e9b0598014ab31bd1c449ab81a48e74f780085599b9"
-    VERIFICATION_BLOCK_HEIGHT = 1453535
+    VERIFICATION_BLOCK_HEIGHT = 0
     VERIFICATION_BLOCK_FIRST_TIMESTAMP = 1546969628
     VERIFICATION_BLOCK_LAST_CHAINWORK = 1453535
     VERIFICATION_BLOCK_LAST_BITS = 436286723
