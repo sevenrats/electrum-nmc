@@ -288,7 +288,7 @@ class Blockchain(util.PrintError):
                 if block_hash_as_num > target:
                     raise Exception(f"insufficient proof of work: {block_hash_as_num} vs target {target}")
 
-    def verify_chunk(self, index: int, chunk: HeaderChunk) -> None:
+    def verify_chunk(self, index: int, chunk) -> None:
         start_height = index * 2016
         prev_hash = self.get_hash(start_height - 1)
         target = self.get_target(index-1)
