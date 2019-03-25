@@ -112,16 +112,22 @@ class UNOList(UTXOList):
         utxo_item = [QStandardItem(x) for x in labels]
         self.set_editability(utxo_item)
 
-        utxo_item[0].setFont(QFont(MONOSPACE_FONT))
-        utxo_item[1].setFont(QFont(MONOSPACE_FONT))
+        utxo_item[self.Columns.NAME].setFont(QFont(MONOSPACE_FONT))
+        utxo_item[self.Columns.VALUE].setFont(QFont(MONOSPACE_FONT))
 
-        utxo_item[0].setData(txout, Qt.UserRole)
-        utxo_item[0].setData(name, Qt.UserRole + USER_ROLE_NAME)
-        utxo_item[0].setData(value, Qt.UserRole + USER_ROLE_VALUE)
+        utxo_item[self.Columns.NAME].setData(txout, Qt.UserRole)
+        utxo_item[self.Columns.NAME].setData(name, Qt.UserRole + USER_ROLE_NAME)
+        utxo_item[self.Columns.NAME].setData(value, Qt.UserRole + USER_ROLE_VALUE)
 
         address = x.get('address')
-        if self.wallet.is_frozen(address):
-            utxo_item[0].setBackground(ColorScheme.BLUE.as_color(True))
+        if self.wallet.is_frozen_address(address) or self.wallet.is_frozen_coin(x):
+            utxo_item[self.Columns.NAME].setBackground(ColorScheme.BLUE.as_color(True))
+            if self.wallet.is_frozen_address(address) and self.wallet.is_frozen_coin(x):
+                utxo_item[self.Columns.NAME].setToolTip(_('Address and coin are frozen'))
+            elif self.wallet.is_frozen_address(address):
+                utxo_item[self.Columns.NAME].setToolTip(_('Address is frozen'))
+            elif self.wallet.is_frozen_coin(x):
+                utxo_item[self.Columns.NAME].setToolTip(_('Coin is frozen'))
         self.model().appendRow(utxo_item)
 
     # TODO: Break out self.selected_in_column argument into its own attribute
