@@ -381,7 +381,7 @@ class Interface(PrintError):
         # use lower timeout as we usually have network.bhi_lock here
         timeout = self.network.get_network_timeout_seconds(NetworkTimeout.Urgent)
 
-        retarget_first_height = cp_height // 2016 * 2016
+        retarget_first_height = cp_height // 2016 * 2016 - 1
         retarget_last_height = (cp_height+1) // 2016 * 2016 - 1
         retarget_last_chunk_index = (cp_height+1) // 2016 - 1
 

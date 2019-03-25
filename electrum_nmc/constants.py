@@ -61,7 +61,7 @@ class BitcoinMainnet(AbstractNet):
     # asyncio.run(network.interface.get_purported_checkpoint(height))
     VERIFICATION_BLOCK_MERKLE_ROOT = "4c6b8a34ed0ab02ef9486d0f57de24ee367e4c1735c20f7b3a79927b62310fc3"
     VERIFICATION_BLOCK_HEIGHT = 0
-    # Timestamp of height // 2016 * 2016
+    # Timestamp of height // 2016 * 2016 - 1 (assumes checkpoint is after Timewarp Hardfork activation)
     VERIFICATION_BLOCK_FIRST_TIMESTAMP = 1546276809
     # Chainwork of (height + 1) // 2016 * 2016 - 1
     VERIFICATION_BLOCK_LAST_CHAINWORK = 1458314160032177082968012064
