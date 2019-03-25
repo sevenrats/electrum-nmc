@@ -199,10 +199,6 @@ class Blockchain(util.PrintError):
                 return func(self, *args, **kwargs)
         return func_wrapper
 
-    @property
-    def checkpoints(self):
-        return constants.net.CHECKPOINTS
-
     def get_max_child(self) -> Optional[int]:
         with blockchains_lock: chains = list(blockchains.values())
         children = list(filter(lambda y: y.parent==self, chains))
@@ -269,7 +265,7 @@ class Blockchain(util.PrintError):
         self._size = os.path.getsize(p)//HEADER_SIZE if os.path.exists(p) else 0
 
     @classmethod
-    def verify_header(cls, header: dict, prev_hash: str, target: int, expected_header_hash: str=None) -> None:
+    def verify_header(cls, header: dict, prev_hash: str, target: int, expected_header_hash: str=None, proof_was_provided: bool=False) -> None:
         _hash = hash_header(header)
         # Don't verify AuxPoW when covered by a checkpoint
         if header.get('block_height') > constants.net.max_checkpoint():
@@ -280,19 +276,23 @@ class Blockchain(util.PrintError):
             raise Exception("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if constants.net.TESTNET:
             return
-        bits = cls.target_to_bits(target)
-        if bits != header.get('bits'):
-            raise Exception("bits mismatch: %s vs %s" % (bits, header.get('bits')))
-        # Don't verify AuxPoW when covered by a checkpoint
-        if header.get('block_height') > constants.net.max_checkpoint():
-            block_hash_as_num = int.from_bytes(bfh(_pow_hash), byteorder='big')
-            if block_hash_as_num > target:
-                raise Exception(f"insufficient proof of work: {block_hash_as_num} vs target {target}")
+
+        # We do not need to check the block difficulty if the chain of linked header hashes was proven correct against our checkpoint.
+        if not proof_was_provided:
+            bits = cls.target_to_bits(target)
+            if bits != header.get('bits'):
+                raise Exception("bits mismatch: %s vs %s" % (bits, header.get('bits')))
+            # Don't verify AuxPoW when covered by a checkpoint
+            if header.get('block_height') > constants.net.max_checkpoint():
+                block_hash_as_num = int.from_bytes(bfh(_pow_hash), byteorder='big')
+                if block_hash_as_num > target:
+                    raise Exception(f"insufficient proof of work: {block_hash_as_num} vs target {target}")
 
     def verify_chunk(self, index: int, data: bytes) -> bytes:
         stripped = bytearray()
         start_position = 0
         start_height = index * 2016
+        chunk = HeaderChunk(start_height, data)
         prev_hash = self.get_hash(start_height - 1)
         target = self.get_target(index-1)
         i = 0
@@ -306,7 +306,8 @@ class Blockchain(util.PrintError):
             # Strip auxpow header for disk
             stripped.extend(data[start_position:start_position+HEADER_SIZE])
 
-            header, start_position = deserialize_header(data, index*2016 + i, expect_trailing_data=True, start_position=start_position)
+            raw_header = chunk.get_header_at_index(i)
+            header = deserialize_header(raw_header, start_height + i)
             self.verify_header(header, prev_hash, target, expected_header_hash)
             prev_hash = hash_header(header)
 
@@ -330,7 +331,7 @@ class Blockchain(util.PrintError):
     @with_lock
     def save_chunk(self, index: int, chunk: bytes):
         assert index >= 0, index
-        chunk_within_checkpoint_region = index < len(self.checkpoints)
+        chunk_within_checkpoint_region = index * 2016 < constants.net.max_checkpoint()
         # chunks in checkpoint region are the responsibility of the 'main chain'
         if chunk_within_checkpoint_region and self.parent is not None:
             main_chain = get_best_chain()
@@ -463,19 +464,10 @@ class Blockchain(util.PrintError):
         return self.read_header(height)
 
     def get_hash(self, height: int) -> str:
-        def is_height_checkpoint():
-            within_cp_range = height <= constants.net.max_checkpoint()
-            at_chunk_boundary = (height+1) % 2016 == 0
-            return within_cp_range and at_chunk_boundary
-
         if height == -1:
             return '0000000000000000000000000000000000000000000000000000000000000000'
         elif height == 0:
             return constants.net.GENESIS
-        elif is_height_checkpoint():
-            index = height // 2016
-            h, t = self.checkpoints[index]
-            return h
         else:
             header = self.read_header(height)
             if header is None:
@@ -488,17 +480,22 @@ class Blockchain(util.PrintError):
             return 0
         if index == -1:
             return MAX_TARGET
-        if index < len(self.checkpoints):
-            h, t = self.checkpoints[index]
-            return t
+        if index + 1 == (constants.net.max_checkpoint() + 1) // 2016:
+            return self.bits_to_target(constants.net.VERIFICATION_BLOCK_LAST_BITS)
         # new target
-        first = self.read_header(index * 2016)
+        if index == constants.net.max_checkpoint() // 2016:
+            first_timestamp = constants.net.VERIFICATION_BLOCK_FIRST_TIMESTAMP
+        else:
+            first = self.read_header(index * 2016)
+            if not first:
+                raise MissingHeader()
+            first_timestamp = first.get('timestamp')
         last = self.read_header(index * 2016 + 2015)
-        if not first or not last:
+        if not last:
             raise MissingHeader()
         bits = last.get('bits')
         target = self.bits_to_target(bits)
-        nActualTimespan = last.get('timestamp') - first.get('timestamp')
+        nActualTimespan = last.get('timestamp') - first_timestamp
         nTargetTimespan = 14 * 24 * 60 * 60
         nActualTimespan = max(nActualTimespan, nTargetTimespan // 4)
         nActualTimespan = min(nActualTimespan, nTargetTimespan * 4)
@@ -543,14 +540,17 @@ class Blockchain(util.PrintError):
             # On testnet/regtest, difficulty works somewhat different.
             # It's out of scope to properly implement that.
             return height
-        last_retarget = height // 2016 * 2016 - 1
+        last_retarget = (height + 1) // 2016 * 2016 - 1
         cached_height = last_retarget
-        while _CHAINWORK_CACHE.get(self.get_hash(cached_height)) is None:
+        while cached_height != (constants.net.max_checkpoint() + 1) // 2016 * 2016 - 1 and _CHAINWORK_CACHE.get(self.get_hash(cached_height)) is None:
             if cached_height <= -1:
                 break
             cached_height -= 2016
         assert cached_height >= -1, cached_height
-        running_total = _CHAINWORK_CACHE[self.get_hash(cached_height)]
+        if cached_height == (constants.net.max_checkpoint() + 1) // 2016 * 2016 - 1:
+            running_total = constants.net.VERIFICATION_BLOCK_LAST_CHAINWORK
+        else:
+            running_total = _CHAINWORK_CACHE[self.get_hash(cached_height)]
         while cached_height < last_retarget:
             cached_height += 2016
             work_in_single_header = self.chainwork_of_header_at_height(cached_height)
@@ -559,12 +559,14 @@ class Blockchain(util.PrintError):
             _CHAINWORK_CACHE[self.get_hash(cached_height)] = running_total
         cached_height += 2016
         work_in_single_header = self.chainwork_of_header_at_height(cached_height)
-        work_in_last_partial_chunk = (height % 2016 + 1) * work_in_single_header
+        work_in_last_partial_chunk = ((height + 1) % 2016) * work_in_single_header
         return running_total + work_in_last_partial_chunk
 
-    def can_connect(self, header: dict, check_height: bool=True) -> bool:
+    def can_connect(self, header: dict, check_height: bool=True, proof_was_provided: bool=False) -> bool:
         if header is None:
             return False
+        if proof_was_provided:
+            return True
         height = header['block_height']
         if check_height and self.height() != height - 1:
             #self.print_error("cannot connect at height", height)
@@ -587,28 +589,19 @@ class Blockchain(util.PrintError):
             return False
         return True
 
-    def connect_chunk(self, idx: int, hexdata: str) -> bool:
+    def connect_chunk(self, idx: int, hexdata: str, proof_was_provided: bool=False) -> bool:
         assert idx >= 0, idx
         try:
             data = bfh(hexdata)
-            # verify_chunk also strips the AuxPoW headers
-            data = self.verify_chunk(idx, data)
+            if not proof_was_provided:
+                # verify_chunk also strips the AuxPoW headers
+                data = self.verify_chunk(idx, data)
             #self.print_error("validated chunk %d" % idx)
             self.save_chunk(idx, data)
             return True
         except BaseException as e:
             self.print_error(f'verify_chunk idx {idx} failed: {repr(e)}')
             return False
-
-    def get_checkpoints(self):
-        # for each chunk, store the hash of the last block and the target after the chunk
-        cp = []
-        n = self.height() // 2016
-        for index in range(n):
-            h = self.get_hash((index+1) * 2016 -1)
-            target = self.get_target(index)
-            cp.append((h, target))
-        return cp
 
 
 def check_header(header: dict) -> Optional[Blockchain]:
@@ -621,9 +614,57 @@ def check_header(header: dict) -> Optional[Blockchain]:
     return None
 
 
-def can_connect(header: dict) -> Optional[Blockchain]:
+def can_connect(header: dict, proof_was_provided: bool=False) -> Optional[Blockchain]:
     with blockchains_lock: chains = list(blockchains.values())
     for b in chains:
-        if b.can_connect(header):
+        if b.can_connect(header, proof_was_provided=proof_was_provided):
             return b
     return None
+
+def verify_proven_chunk(chunk_base_height, chunk_data):
+    chunk = HeaderChunk(chunk_base_height, chunk_data)
+
+    header_count = len(chunk_data) // HEADER_SIZE
+    prev_header = None
+    prev_header_hash = None
+    for i in range(header_count):
+        raw_header = chunk.get_header_at_index(i)
+        header = deserialize_header(raw_header, chunk_base_height + i)
+        # Check the chain of hashes for all headers preceding the proven one.
+        this_header_hash = hash_header(header)
+        if i > 0:
+            if prev_header_hash != header.get('prev_block_hash'):
+                raise Exception("prev hash mismatch: %s vs %s" % (prev_header_hash, header.get('prev_block_hash')))
+        prev_header_hash = this_header_hash
+
+# Copied from electrumx
+def root_from_proof(hash, branch, index):
+    hash_func = sha256d
+    for elt in branch:
+        if index & 1:
+            hash = hash_func(elt + hash)
+        else:
+            hash = hash_func(hash + elt)
+        index >>= 1
+    if index:
+        raise ValueError('index out of range for branch')
+    return hash
+
+class HeaderChunk:
+    def __init__(self, base_height, data):
+        self.base_height = base_height
+        self.data = data
+
+    def __repr__(self):
+        return "HeaderChunk(base_height={}, data_count={})".format(self.base_height, len(self.data))
+
+    def contains_height(self, height):
+        header_count = len(self.data) // HEADER_SIZE
+        return height >= self.base_height and height < self.base_height + header_count
+
+    def get_header_at_height(self, height):
+        return self.get_header_at_index(height - self.base_height)
+
+    def get_header_at_index(self, index):
+        header_offset = index * HEADER_SIZE
+        return self.data[header_offset:header_offset + HEADER_SIZE]
