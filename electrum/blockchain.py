@@ -611,7 +611,7 @@ def can_connect(header: dict, proof_was_provided: bool=False) -> Optional[Blockc
 def verify_proven_chunk(chunk_base_height, chunk_data):
     chunk = HeaderChunk(chunk_base_height, chunk_data)
 
-    header_count = len(chunk.deserialized_headers)
+    header_count = chunk.get_header_count()
     prev_header = None
     prev_header_hash = None
     for i in range(header_count):
@@ -656,11 +656,22 @@ class HeaderChunk:
         return "HeaderChunk(base_height={}, data_count={})".format(self.base_height, len(self.data))
 
     def contains_height(self, height):
-        header_count = len(self.deserialized_headers)
-        return height >= self.base_height and height < self.base_height + header_count
+        return height >= self.base_height and height < self.base_height + self.get_header_count()
+
+    # Note: this strips AuxPoW
+    def get_header_at_height(self, height):
+        return self.get_header_at_index(height - self.base_height)
+
+    # Note: this strips AuxPoW
+    def get_header_at_index(self, index):
+        header_offset = index * HEADER_SIZE
+        return self.stripped_data[header_offset:header_offset + HEADER_SIZE]
 
     def get_deserialized_header_at_height(self, height):
         return self.get_deserialized_header_at_index(height - self.base_height)
 
     def get_deserialized_header_at_index(self, index):
         return self.deserialized_headers[index]
+
+    def get_header_count(self):
+        return len(self.deserialized_headers)
