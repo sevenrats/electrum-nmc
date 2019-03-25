@@ -651,6 +651,7 @@ class HeaderChunk:
             height = self.base_height + i
             header, start_position = deserialize_header(data, height, expect_trailing_data=True, start_position=start_position)
             self.deserialized_headers.append(header)
+            i += 1
 
     def __repr__(self):
         return "HeaderChunk(base_height={}, data_count={})".format(self.base_height, len(self.data))
