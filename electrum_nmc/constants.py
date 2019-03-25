@@ -59,14 +59,14 @@ class BitcoinMainnet(AbstractNet):
     # To generate this, connect to a trusted server, and then run this from the console:
     # import asyncio
     # asyncio.run(network.interface.get_purported_checkpoint(height))
-    VERIFICATION_BLOCK_MERKLE_ROOT = "4c6b8a34ed0ab02ef9486d0f57de24ee367e4c1735c20f7b3a79927b62310fc3"
-    VERIFICATION_BLOCK_HEIGHT = 0
+    VERIFICATION_BLOCK_MERKLE_ROOT = "f5eef708f0822b2fadd400d0882bee33384ae995d6526487dabef135b687df50"
+    VERIFICATION_BLOCK_HEIGHT = 436328
     # Timestamp of height // 2016 * 2016 - 1 (assumes checkpoint is after Timewarp Hardfork activation)
-    VERIFICATION_BLOCK_FIRST_TIMESTAMP = 1546276809
+    VERIFICATION_BLOCK_FIRST_TIMESTAMP = 1548224659
     # Chainwork of (height + 1) // 2016 * 2016 - 1
-    VERIFICATION_BLOCK_LAST_CHAINWORK = 1458314160032177082968012064
+    VERIFICATION_BLOCK_LAST_CHAINWORK = 1073118583768961909458403712
     # Bits used in height + 1
-    VERIFICATION_BLOCK_LAST_BITS = 389010995
+    VERIFICATION_BLOCK_LAST_BITS = 390180185
 
     XPRV_HEADERS = {
         'standard':    0x0488ade4,  # xprv
