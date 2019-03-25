@@ -288,32 +288,18 @@ class Blockchain(util.PrintError):
                 if block_hash_as_num > target:
                     raise Exception(f"insufficient proof of work: {block_hash_as_num} vs target {target}")
 
-    def verify_chunk(self, index: int, data: bytes) -> bytes:
-        stripped = bytearray()
-        start_position = 0
+    def verify_chunk(self, index: int, chunk: HeaderChunk) -> None:
         start_height = index * 2016
-        chunk = HeaderChunk(start_height, data)
         prev_hash = self.get_hash(start_height - 1)
         target = self.get_target(index-1)
-        i = 0
-        while start_position < len(data):
+        for i, header in enumerate(chunk.deserialized_headers)
             height = start_height + i
             try:
                 expected_header_hash = self.get_hash(height)
             except MissingHeader:
                 expected_header_hash = None
-
-            # Strip auxpow header for disk
-            stripped.extend(data[start_position:start_position+HEADER_SIZE])
-
-            raw_header = chunk.get_header_at_index(i)
-            header = deserialize_header(raw_header, start_height + i)
             self.verify_header(header, prev_hash, target, expected_header_hash)
             prev_hash = hash_header(header)
-
-            i = i + 1
-
-        return bytes(stripped)
 
     @with_lock
     def path(self):
@@ -593,11 +579,12 @@ class Blockchain(util.PrintError):
         assert idx >= 0, idx
         try:
             data = bfh(hexdata)
+            start_height = index * 2016
+            chunk = HeaderChunk(start_height, data)
             if not proof_was_provided:
-                # verify_chunk also strips the AuxPoW headers
-                data = self.verify_chunk(idx, data)
+                self.verify_chunk(idx, chunk)
             #self.print_error("validated chunk %d" % idx)
-            self.save_chunk(idx, data)
+            self.save_chunk(idx, chunk.stripped_data)
             return True
         except BaseException as e:
             self.print_error(f'verify_chunk idx {idx} failed: {repr(e)}')
@@ -624,12 +611,11 @@ def can_connect(header: dict, proof_was_provided: bool=False) -> Optional[Blockc
 def verify_proven_chunk(chunk_base_height, chunk_data):
     chunk = HeaderChunk(chunk_base_height, chunk_data)
 
-    header_count = len(chunk_data) // HEADER_SIZE
+    header_count = len(chunk.deserialized_headers)
     prev_header = None
     prev_header_hash = None
     for i in range(header_count):
-        raw_header = chunk.get_header_at_index(i)
-        header = deserialize_header(raw_header, chunk_base_height + i)
+        header = chunk.get_deserialized_header_at_index(i)
         # Check the chain of hashes for all headers preceding the proven one.
         this_header_hash = hash_header(header)
         if i > 0:
@@ -655,16 +641,26 @@ class HeaderChunk:
         self.base_height = base_height
         self.data = data
 
+        # AuxPoW
+        self.deserialized_headers = []
+        self.stripped_data = bytearray()
+        start_position = 0
+        i = 0
+        while start_position < len(data):
+            self.stripped_data.extend(data[start_position:start_position+HEADER_SIZE])
+            height = self.base_height + i
+            header, start_position = deserialize_header(data, height, expect_trailing_data=True, start_position=start_position)
+            self.deserialized_headers.append(header)
+
     def __repr__(self):
         return "HeaderChunk(base_height={}, data_count={})".format(self.base_height, len(self.data))
 
     def contains_height(self, height):
-        header_count = len(self.data) // HEADER_SIZE
+        header_count = len(self.deserialized_headers)
         return height >= self.base_height and height < self.base_height + header_count
 
-    def get_header_at_height(self, height):
-        return self.get_header_at_index(height - self.base_height)
+    def get_deserialized_header_at_height(self, height):
+        return self.get_deserialized_header_at_index(height - self.base_height)
 
-    def get_header_at_index(self, index):
-        header_offset = index * HEADER_SIZE
-        return self.data[header_offset:header_offset + HEADER_SIZE]
+    def get_deserialized_header_at_index(self, index):
+        return self.deserialized_headers[index]
