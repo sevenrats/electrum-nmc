@@ -1027,7 +1027,7 @@ class Commands:
         header = self.network.blockchain().read_header(height)
         if header is None:
             if height < constants.net.max_checkpoint():
-                self.network.run_from_another_thread(self.network.request_chunk(height, None))
+                header, proof_was_provided = self.network.run_from_another_thread(self.network.interface.get_block_header(height, 'name_show', must_provide_proof=True))
 
         # (from verifier._request_and_verify_single_proof)
         merkle = self.network.run_from_another_thread(self.network.get_merkle_for_transaction(txid, height))
@@ -1040,7 +1040,8 @@ class Commands:
             # we need to wait if header sync/reorg is still ongoing, hence lock:
             async with self.network.bhi_lock:
                 return self.network.blockchain().read_header(height)
-        header = self.network.run_from_another_thread(wait_for_header())
+        if header is None:
+            header = self.network.run_from_another_thread(wait_for_header())
         verify_tx_is_in_block(txid, merkle_branch, pos, header, height)
 
         # The txid is now verified to come from a safe height in the blockchain.
