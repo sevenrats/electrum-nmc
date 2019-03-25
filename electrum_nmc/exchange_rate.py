@@ -21,6 +21,11 @@ from .network import Network
 from .simple_config import SimpleConfig
 
 
+DEFAULT_ENABLED = False
+DEFAULT_CURRENCY = "EUR"
+DEFAULT_EXCHANGE = "CoinGecko"  # default exchange should ideally provide historical rates
+
+
 # See https://en.wikipedia.org/wiki/ISO_4217
 CCY_PRECISIONS = {'BHD': 3, 'BIF': 0, 'BYR': 0, 'CLF': 4, 'CLP': 0,
                   'CVE': 0, 'DJF': 0, 'GNF': 0, 'IQD': 3, 'ISK': 0,
@@ -137,24 +142,18 @@ class ExchangeBase(PrintError):
         rates = await self.get_rates('')
         return sorted([str(a) for (a, b) in rates.items() if b is not None and len(a)==3])
 
+
 # Doesn't support Namecoin.
 """
 class BitcoinAverage(ExchangeBase):
+    # note: historical rates used to be freely available
+    # but this is no longer the case. see #5188
 
     async def get_rates(self, ccy):
         json = await self.get_json('apiv2.bitcoinaverage.com', '/indices/global/ticker/short')
         return dict([(r.replace("BTC", ""), Decimal(json[r]['last']))
                      for r in json if r != 'timestamp'])
 
-    def history_ccys(self):
-        # BitcoinAverage seems to have historical data for all ccys it supports
-        return CURRENCIES[self.name()]
-
-    async def request_history(self, ccy):
-        history = await self.get_csv('apiv2.bitcoinaverage.com',
-                               "/indices/global/history/BTC%s?period=alltime&format=csv" % ccy)
-        return dict([(h['DateTime'][:10], h['Average'])
-                     for h in history])
 """
 
 
@@ -284,6 +283,30 @@ class Coinbase(ExchangeBase):
 """
 
 
+class CoinCap(ExchangeBase):
+
+    async def get_rates(self, ccy):
+        # CoinCap rates API is broken for Namecoin.  Use history API instead.
+        """
+        json = await self.get_json('api.coincap.io', '/v2/rates/namecoin/')
+        return {'USD': Decimal(json['data']['rateUsd'])}
+        """
+        history = await self.get_json('api.coincap.io',
+                                      '/v2/assets/namecoin/history?interval=d1&limit=2000')
+        return {'USD': Decimal(json['data'][-1]['priceUsd'])}
+
+    def history_ccys(self):
+        return ['USD']
+
+    async def request_history(self, ccy):
+        # Currently 2000 days is the maximum in 1 API call
+        # (and history starts on 2017-03-23)
+        history = await self.get_json('api.coincap.io',
+                                      '/v2/assets/namecoin/history?interval=d1&limit=2000')
+        return dict([(datetime.utcfromtimestamp(h['time']/1000).strftime('%Y-%m-%d'), h['priceUsd'])
+                     for h in history['data']])
+
+
 # Doesn't support Namecoin.
 """
 class CoinDesk(ExchangeBase):
@@ -316,7 +339,31 @@ class CoinDesk(ExchangeBase):
 """
 
 
-# Doesn't support Namecoin.
+class CoinGecko(ExchangeBase):
+
+    async def get_rates(self, ccy):
+        # CoinGecko exchange_rates API is unavailable for Namecoin.  Use coins API instead.
+        """
+        json = await self.get_json('api.coingecko.com', '/api/v3/exchange_rates')
+        return dict([(ccy.upper(), Decimal(d['value']))
+                     for ccy, d in json['rates'].items()])
+        """
+        json = await self.get_json('api.coingecko.com', '/api/v3/coins/namecoin')
+        return dict([(ccy.upper(), Decimal(d['value']))
+                     for ccy, d in json['market_data']['current_price'].items()])
+
+    def history_ccys(self):
+        # CoinGecko seems to have historical data for all ccys it supports
+        return CURRENCIES[self.name()]
+
+    async def request_history(self, ccy):
+        history = await self.get_json('api.coingecko.com',
+                                      '/api/v3/coins/namecoin/market_chart?vs_currency=%s&days=max' % ccy)
+
+        return dict([(datetime.utcfromtimestamp(h[0]/1000).strftime('%Y-%m-%d'), h[1])
+                     for h in history['prices']])
+
+
 """
 class itBit(ExchangeBase):
 
@@ -535,14 +582,14 @@ class FxThread(ThreadJob):
                 await self.exchange.update_safe(self.ccy)
 
     def is_enabled(self):
-        return bool(self.config.get('use_exchange_rate'))
+        return bool(self.config.get('use_exchange_rate', DEFAULT_ENABLED))
 
     def set_enabled(self, b):
         self.config.set_key('use_exchange_rate', bool(b))
         self.trigger_update()
 
-    def get_history_config(self):
-        return bool(self.config.get('history_rates'))
+    def get_history_config(self, *, default=False):
+        return bool(self.config.get('history_rates', default))
 
     def set_history_config(self, b):
         self.config.set_key('history_rates', bool(b))
@@ -561,10 +608,10 @@ class FxThread(ThreadJob):
 
     def get_currency(self):
         '''Use when dynamic fetching is needed'''
-        return self.config.get("currency", "USD")
+        return self.config.get("currency", DEFAULT_CURRENCY)
 
     def config_exchange(self):
-        return self.config.get('use_exchange', 'WEX')
+        return self.config.get('use_exchange', DEFAULT_EXCHANGE)
 
     def show_history(self):
         return self.is_enabled() and self.get_history_config() and self.ccy in self.exchange.history_ccys()
@@ -580,7 +627,7 @@ class FxThread(ThreadJob):
             self.network.asyncio_loop.call_soon_threadsafe(self._trigger.set)
 
     def set_exchange(self, name):
-        class_ = globals().get(name, WEX)
+        class_ = globals().get(name) or globals().get(DEFAULT_EXCHANGE)
         self.print_error("using exchange", name)
         if self.config_exchange() != name:
             self.config.set_key('use_exchange', name, True)
@@ -650,3 +697,6 @@ class FxThread(ThreadJob):
         from .util import timestamp_to_datetime
         date = timestamp_to_datetime(timestamp)
         return self.history_rate(date)
+
+
+assert globals().get(DEFAULT_EXCHANGE), f"default exchange {DEFAULT_EXCHANGE} does not exist"
