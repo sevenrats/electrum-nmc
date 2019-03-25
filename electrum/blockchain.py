@@ -114,7 +114,7 @@ def read_blockchains(config: 'SimpleConfig'):
     # consistency checks
     if best_chain.height() > constants.net.max_checkpoint():
         header_after_cp = best_chain.read_header(constants.net.max_checkpoint()+1)
-        if not header_after_cp or not best_chain.can_connect(header_after_cp, check_height=False):
+        if not header_after_cp or not best_chain.can_connect(header_after_cp, check_height=False, skip_auxpow=True):
             util.print_error("[blockchain] deleting best chain. cannot connect header after last cp to last cp.")
             os.unlink(best_chain.path())
             best_chain.update_size()
@@ -267,10 +267,13 @@ class Blockchain(util.PrintError):
         self._size = os.path.getsize(p)//HEADER_SIZE if os.path.exists(p) else 0
 
     @classmethod
-    def verify_header(cls, header: dict, prev_hash: str, target: int, expected_header_hash: str=None, proof_was_provided: bool=False) -> None:
-        _hash = hash_header(header)
+    def verify_header(cls, header: dict, prev_hash: str, target: int, expected_header_hash: str=None, proof_was_provided: bool=False, skip_auxpow: bool=False) -> None:
         # Don't verify AuxPoW when covered by a checkpoint
-        if header.get('block_height') > constants.net.max_checkpoint():
+        if header.get('block_height') <= constants.net.max_checkpoint():
+            skip_auxpow = True
+
+        _hash = hash_header(header)
+        if not skip_auxpow:
             _pow_hash = auxpow.hash_parent_header(header)
         if expected_header_hash and expected_header_hash != _hash:
             raise Exception("hash mismatches with expected: {} vs {}".format(expected_header_hash, _hash))
@@ -285,7 +288,7 @@ class Blockchain(util.PrintError):
             if bits != header.get('bits'):
                 raise Exception("bits mismatch: %s vs %s" % (bits, header.get('bits')))
             # Don't verify AuxPoW when covered by a checkpoint
-            if header.get('block_height') > constants.net.max_checkpoint():
+            if not skip_auxpow:
                 block_hash_as_num = int.from_bytes(bfh(_pow_hash), byteorder='big')
                 if block_hash_as_num > target:
                     raise Exception(f"insufficient proof of work: {block_hash_as_num} vs target {target}")
@@ -552,7 +555,7 @@ class Blockchain(util.PrintError):
         work_in_last_partial_chunk = ((height + 1) % 2016) * work_in_single_header
         return running_total + work_in_last_partial_chunk
 
-    def can_connect(self, header: dict, check_height: bool=True, proof_was_provided: bool=False) -> bool:
+    def can_connect(self, header: dict, check_height: bool=True, proof_was_provided: bool=False, skip_auxpow: bool=False) -> bool:
         if header is None:
             return False
         if proof_was_provided:
@@ -574,7 +577,7 @@ class Blockchain(util.PrintError):
         except MissingHeader:
             return False
         try:
-            self.verify_header(header, prev_hash, target)
+            self.verify_header(header, prev_hash, target, skip_auxpow=skip_auxpow)
         except BaseException as e:
             return False
         return True
