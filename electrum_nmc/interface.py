@@ -42,7 +42,7 @@ from . import x509
 from . import pem
 from . import version
 from . import blockchain
-from .blockchain import Blockchain
+from .blockchain import Blockchain, HeaderChunk
 from . import constants
 from .i18n import _
 
