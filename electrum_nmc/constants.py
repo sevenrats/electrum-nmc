@@ -67,6 +67,8 @@ class BitcoinMainnet(AbstractNet):
     VERIFICATION_BLOCK_LAST_CHAINWORK = 1073118583768961909458403712
     # Bits used in height + 1
     VERIFICATION_BLOCK_LAST_BITS = 390180185
+    # Hash of (height + 1) // 2016 * 2016 - 1
+    VERIFICATION_BLOCK_LAST_HASH = "TODO"
 
     XPRV_HEADERS = {
         'standard':    0x0488ade4,  # xprv

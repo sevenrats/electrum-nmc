@@ -68,7 +68,9 @@ def deserialize_header(s: bytes, height: int, expect_trailing_data=False, start_
     h['nonce'] = hex_to_int(s[start_position+76:start_position+80])
     h['block_height'] = height
 
-    if auxpow.auxpow_active(h) and height > constants.net.max_checkpoint():
+    # TODO: auxpow_stripped might have wrong result when request_chunk's tip argument is non-None.
+    auxpow_stripped = height // 2016 * 2016 + 2016 - 1 <= constants.net.max_checkpoint()
+    if auxpow.auxpow_active(h) and not auxpow_stripped:
         if expect_trailing_data:
             h['auxpow'], start_position = auxpow.deserialize_auxpow_header(h, s, expect_trailing_data=True, start_position=start_position+HEADER_SIZE)
         else:
@@ -454,6 +456,8 @@ class Blockchain(util.PrintError):
             return '0000000000000000000000000000000000000000000000000000000000000000'
         elif height == 0:
             return constants.net.GENESIS
+        elif height == (constants.net.max_checkpoint() + 1) // 2016 * 2016 - 1:
+            return constants.net.VERIFICATION_BLOCK_LAST_HASH
         else:
             header = self.read_header(height)
             if header is None:
