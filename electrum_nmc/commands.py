@@ -1006,16 +1006,45 @@ class Commands:
 
         txs = self.network.run_from_another_thread(self.network.get_history_for_scripthash(sh))
 
+        # Check the blockchain height (local and server chains)
+        local_chain_height = self.network.get_local_height()
+        server_chain_height = self.network.get_server_height()
+        max_chain_height = max(local_chain_height, server_chain_height)
+
         # Pick the most recent name op that's [12, 36000) confirmations.
-        chain_height = self.network.blockchain().height()
-        safe_height_max = chain_height - 12
-        safe_height_min = chain_height - 35999
+        # Expiration is calculated using max of local and server height.
+        # Verification depth is calculated using local height.
+        # If a transaction has under 12 local confirmations, then we check
+        # whether it also has under 18 server confirmations.  If so, then we
+        # just skip it and look for an older transaction.  If it has more than
+        # 18 server confirmations but under 12 local confirmations, then we're
+        # probably still syncing, and we error.
+        unexpired_height = max_chain_height - 35999
+        unverified_height = local_chain_height - 12
+        unmined_height = max_chain_height - 18
 
         tx_best = None
         for tx_candidate in txs[::-1]:
-            if tx_candidate["height"] <= safe_height_max and tx_candidate["height"] >= safe_height_min:
-                tx_best = tx_candidate
-                break
+            if tx_candidate["height"] < unexpired_height:
+                # Transaction is expired.  Skip.
+                continue
+            if tx_candidate["height"] > unverified_height:
+                # Transaction doesn't have enough verified depth.  What we do
+                # here depends on whether it's due to lack of mining or because
+                # we're still syncing.
+
+                if tx_candidate["height"] > unmined_height:
+                    # Transaction is new; skip in favor of an older one.
+                    continue
+
+                # We can't verify the transaction because we're still syncing,
+                # but we have reason to believe that previous transactions will
+                # be stale.  So we have to error.
+                raise Exception('The blockchain is still syncing')
+
+            tx_best = tx_candidate
+            break
+
         if tx_best is None:
             raise NameNotFoundError("Name never existed, is expired, or is unconfirmed")
         txid = tx_best["tx_hash"]
@@ -1087,7 +1116,7 @@ class Commands:
                         "vout": idx,
                         "address": o.address,
                         "height": height,
-                        "expires_in": name_expires_in(height, chain_height),
+                        "expires_in": name_expires_in(height, local_chain_height),
                         "expired": False,
                         "ismine": is_mine,
                     }
