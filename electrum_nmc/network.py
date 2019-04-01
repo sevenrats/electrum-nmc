@@ -787,14 +787,19 @@ class Network(PrintError):
                 raise UntrustedServerReturnedError(original_exception=e) from e
         return wrapper
 
-    @best_effort_reliable
-    @catch_server_exceptions
-    async def get_merkle_for_transaction(self, tx_hash: str, tx_height: int) -> dict:
+    def construct_get_merkle_for_transaction(self, tx_hash: str, tx_height: int):
         if not is_hash256_str(tx_hash):
             raise Exception(f"{repr(tx_hash)} is not a txid")
         if not is_non_negative_integer(tx_height):
             raise Exception(f"{repr(tx_height)} is not a block height")
-        return await self.interface.session.send_request('blockchain.transaction.get_merkle', [tx_hash, tx_height])
+        return 'blockchain.transaction.get_merkle', [tx_hash, tx_height]
+
+    @best_effort_reliable
+    @catch_server_exceptions
+    async def get_merkle_for_transaction(self, tx_hash: str, tx_height: int) -> dict:
+        method, args = self.construct_get_merkle_for_transaction(tx_hash, tx_height)
+
+        return await self.interface.session.send_request(method, args)
 
     @best_effort_reliable
     async def broadcast_transaction(self, tx, *, timeout=None) -> None:
@@ -957,12 +962,17 @@ class Network(PrintError):
             raise Exception(f"{repr(height)} is not a block height")
         return await self.interface.request_chunk(height, tip=tip, can_return_early=can_return_early)
 
+    def construct_get_transaction(self, tx_hash: str):
+        if not is_hash256_str(tx_hash):
+            raise Exception(f"{repr(tx_hash)} is not a txid")
+        return 'blockchain.transaction.get', [tx_hash]
+
     @best_effort_reliable
     @catch_server_exceptions
     async def get_transaction(self, tx_hash: str, *, timeout=None) -> str:
-        if not is_hash256_str(tx_hash):
-            raise Exception(f"{repr(tx_hash)} is not a txid")
-        return await self.interface.session.send_request('blockchain.transaction.get', [tx_hash],
+        method, args = self.construct_get_transaction(tx_hash)
+
+        return await self.interface.session.send_request(method, args,
                                                          timeout=timeout)
 
     @best_effort_reliable
@@ -985,6 +995,32 @@ class Network(PrintError):
         if not is_hash256_str(sh):
             raise Exception(f"{repr(sh)} is not a scripthash")
         return await self.interface.session.send_request('blockchain.scripthash.get_balance', [sh])
+
+    @best_effort_reliable
+    @catch_server_exceptions
+    async def get_tx_merkle_and_header(self, tx_hash: str, tx_height: int):
+        tx_method, tx_args = self.construct_get_transaction(tx_hash)
+
+        merkle_method, merkle_args = self.construct_get_merkle_for_transaction(tx_hash, tx_height)
+
+        header = self.blockchain().read_header(tx_height)
+        need_to_fetch_header = False
+        if header is None:
+            if tx_height < constants.net.max_checkpoint():
+                header_method, header_args = self.interface.construct_get_block_header(tx_height, 'name_show', must_provide_proof=True)
+                need_to_fetch_header = True
+
+        async with self.interface.session.send_batch(raise_errors = True) as batch:
+            batch.add_request(tx_method, tx_args)
+            batch.add_request(merkle_method, merkle_args)
+            if need_to_fetch_header:
+                batch.add_request(header_method, header_args)
+
+        tx_result = batch.results[0]
+        merkle_result = batch.results[1]
+        header_result, header_proof_was_provided = (header, False) if not need_to_fetch_header else self.interface.process_get_block_header(header_args, batch.results[2])
+
+        return tx_result, merkle_result, header_result
 
     def blockchain(self) -> Blockchain:
         interface = self.interface

@@ -399,10 +399,8 @@ class Interface(PrintError):
         else:
             raise Exception("Expected checkpoint validation data, did not receive it.")
 
-    async def get_block_header(self, height, assert_mode, must_provide_proof=False):
+    def construct_get_block_header(self, height, assert_mode, must_provide_proof=False):
         self.print_error('requesting block header {} in mode {}'.format(height, assert_mode))
-        # use lower timeout as we usually have network.bhi_lock here
-        timeout = self.network.get_network_timeout_seconds(NetworkTimeout.Urgent)
 
         cp_height = constants.net.max_checkpoint()
         if height > cp_height:
@@ -410,7 +408,11 @@ class Interface(PrintError):
                 raise Exception("Can't request a checkpoint proof because requested height is above checkpoint height")
             cp_height = 0
 
-        res = await self.session.send_request('blockchain.block.header', [height, cp_height], timeout=timeout)
+        return 'blockchain.block.header', [height, cp_height]
+
+    def process_get_block_header(self, args, res):
+        height = args[0]
+        cp_height = args[1]
 
         proof_was_provided = False
         hexheader = None
@@ -427,6 +429,16 @@ class Interface(PrintError):
             hexheader = res
 
         return blockchain.deserialize_header(bytes.fromhex(hexheader), height), proof_was_provided
+
+    async def get_block_header(self, height, assert_mode, must_provide_proof=False):
+        method, args = self.construct_get_block_header(height, assert_mode, must_provide_proof)
+
+        # use lower timeout as we usually have network.bhi_lock here
+        timeout = self.network.get_network_timeout_seconds(NetworkTimeout.Urgent)
+
+        res = await self.session.send_request(method, args, timeout=timeout)
+
+        return self.process_get_block_header(args, res)
 
     async def request_chunk(self, height, tip=None, *, can_return_early=False):
         index = height // 2016

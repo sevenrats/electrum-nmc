@@ -1052,14 +1052,11 @@ class Commands:
 
         # The height is now verified to be safe.
 
-        # (from verifier._request_proofs) if it's in the checkpoint region, we still might not have the header
-        header = self.network.blockchain().read_header(height)
-        if header is None:
-            if height < constants.net.max_checkpoint():
-                header, proof_was_provided = self.network.run_from_another_thread(self.network.interface.get_block_header(height, 'name_show', must_provide_proof=True))
+        # Batch all of our network calls (other than
+        # get_history_for_scripthash) into a single round trip.
+        raw, merkle, header = self.network.run_from_another_thread(self.network.get_tx_merkle_and_header(txid, height))
 
         # (from verifier._request_and_verify_single_proof)
-        merkle = self.network.run_from_another_thread(self.network.get_merkle_for_transaction(txid, height))
         if height != merkle.get('block_height'):
             raise Exception('requested height {} differs from received height {} for txid {}'
                             .format(height, merkle.get('block_height'), txid))
@@ -1078,7 +1075,6 @@ class Commands:
         if self.wallet and txid in self.wallet.db.transactions:
             tx = self.wallet.db.transactions[txid]
         else:
-            raw = self.network.run_from_another_thread(self.network.get_transaction(txid))
             if raw:
                 tx = Transaction(raw)
             else:
