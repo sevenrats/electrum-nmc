@@ -57,8 +57,11 @@ from .version import PROTOCOL_VERSION
 from .simple_config import SimpleConfig
 from .i18n import _
 
-NODES_RETRY_INTERVAL = 60
-SERVER_RETRY_INTERVAL = 10
+# Namecoin's intervals are shorter than Bitcoin's, because disruption of name
+# lookup service is substantially worse UX than disruption of currency wallet
+# service.
+NODES_RETRY_INTERVAL = 1
+SERVER_RETRY_INTERVAL = 1
 
 
 def parse_servers(result: Sequence[Tuple[str, str, List[str]]]) -> Dict[str, dict]:
@@ -1098,7 +1101,7 @@ class Network(PrintError):
             return
         now = time.time()
         # if auto_connect is set, try a different server
-        if self.auto_connect and not self.is_connecting():
+        if self.auto_connect:
             await self._switch_to_random_interface()
         # if auto_connect is not set, or still no main interface, retry current
         if not self.is_connected() and not self.is_connecting():
