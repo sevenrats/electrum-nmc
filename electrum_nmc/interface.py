@@ -463,6 +463,7 @@ class Interface(PrintError):
 
                 # Check if another interface has already connected this chunk
                 if self.network.blockchain().height() >= height:
+                    size = 2016
                     size = min(size, self.network.blockchain().height() - index * 2016 + 1)
                     size = max(size, 0)
                     return True, size
