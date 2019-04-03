@@ -213,7 +213,7 @@ class Interface(PrintError):
             username, pw, isolate = proxy.get('user'), proxy.get('password'), proxy.get('isolate')
             if isolate:
                 auth = aiorpcx.socks.SOCKSUserAuth('electrum-nmc://' + self.server, '')
-            else if not username or not pw:
+            elif not username or not pw:
                 auth = None
             else:
                 auth = aiorpcx.socks.SOCKSUserAuth(username, pw)
