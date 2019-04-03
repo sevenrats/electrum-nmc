@@ -473,6 +473,11 @@ class Interface(PrintError):
                 while str(ahead_index) in self.network.pending_chunks:
                     ahead_index += 1
                     ahead_height += 2016
+
+                # If we've already queued through the server's tip, stop pre-fetching
+                if tip is not None and ahead_index * 2016 > tip:
+                    await asyncio.sleep(0.005)
+                    continue
                 self.network.pending_chunks[str(ahead_index)] = {}
 
             if can_return_early and ahead_index in self._requested_chunks:
