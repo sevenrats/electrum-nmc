@@ -1020,7 +1020,13 @@ class Network(PrintError):
                 header_method, header_args = self.interface.construct_get_block_header(tx_height, 'name_show', must_provide_proof=True)
                 need_to_fetch_header = True
 
-        async with self.interface.session.send_batch(raise_errors = True) as batch:
+        servers = self.get_interfaces()    # Those in connected state
+        if len(servers) > 1 and self.default_server in servers:
+            servers.remove(self.default_server)
+        if servers:
+            name_server = random.choice(servers)
+
+        async with self.interfaces[name_server].session.send_batch(raise_errors = True) as batch:
             batch.add_request(tx_method, tx_args)
             batch.add_request(merkle_method, merkle_args)
             if need_to_fetch_header:
