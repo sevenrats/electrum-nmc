@@ -489,7 +489,7 @@ class Interface(PrintError):
                 try: self._requested_chunks.remove(ahead_index)
                 except KeyError: pass
             async with self.network.bhi_lock:
-                self.network.pending_chunks[str(ahead_index)] = {'res': res, 'proof_was_provided': proof_was_provided, 'interface': self})
+                self.network.pending_chunks[str(ahead_index)] = {'res': res, 'proof_was_provided': proof_was_provided, 'interface': self}
 
     async def request_headers(self, height, count):
         if count > 2016:
