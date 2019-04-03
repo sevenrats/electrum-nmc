@@ -165,6 +165,15 @@ def deserialize_proxy(s: str) -> Optional[dict]:
         n += 1
     if len(args) > n:
         proxy["password"] = args[n]
+        n += 1
+    if len(args) > n:
+        isolate = args[n]
+        if isolate == "0":
+            proxy["isolate"] = False
+        elif isolate == "1":
+            proxy["isolate"] = True
+        else:
+            raise Exception("Couldn't parse proxy isolation setting: " + isolate)
     return proxy
 
 
@@ -234,6 +243,7 @@ class Network(PrintError):
         self.print_error("blockchains", list(map(lambda b: b.forkpoint, blockchain.blockchains.values())))
         self._blockchain_preferred_block = self.config.get('blockchain_preferred_block', None)  # type: Optional[Dict]
         self._blockchain = blockchain.get_best_chain()
+        self.pending_chunks = {}
         # Server for addresses and transactions
         self.default_server = self.config.get('server', None)
         # Sanitize default server
