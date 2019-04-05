@@ -987,10 +987,16 @@ class Network(PrintError):
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_history_for_scripthash(self, sh: str) -> List[dict]:
+    async def get_history_for_scripthash(self, sh: str, server=None) -> List[dict]:
         if not is_hash256_str(sh):
             raise Exception(f"{repr(sh)} is not a scripthash")
-        return await self.interface.session.send_request('blockchain.scripthash.get_history', [sh])
+
+        if server is not None:
+            i = self.interfaces[server]
+        else:
+            i = self.interface
+
+        return await i.session.send_request('blockchain.scripthash.get_history', [sh])
 
     @best_effort_reliable
     @catch_server_exceptions
@@ -1008,7 +1014,7 @@ class Network(PrintError):
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_tx_merkle_and_header(self, tx_hash: str, tx_height: int):
+    async def get_tx_merkle_and_header(self, tx_hash: str, tx_height: int, server=None):
         tx_method, tx_args = self.construct_get_transaction(tx_hash)
 
         merkle_method, merkle_args = self.construct_get_merkle_for_transaction(tx_hash, tx_height)
@@ -1020,13 +1026,12 @@ class Network(PrintError):
                 header_method, header_args = self.interface.construct_get_block_header(tx_height, 'name_show', must_provide_proof=True)
                 need_to_fetch_header = True
 
-        servers = self.get_interfaces()    # Those in connected state
-        if len(servers) > 1 and self.default_server in servers:
-            servers.remove(self.default_server)
-        if servers:
-            name_server = random.choice(servers)
+        if server is not None:
+            i = self.interfaces[server]
+        else:
+            i = self.interface
 
-        async with self.interfaces[name_server].session.send_batch(raise_errors = True) as batch:
+        async with i.session.send_batch(raise_errors = True) as batch:
             batch.add_request(tx_method, tx_args)
             batch.add_request(merkle_method, merkle_args)
             if need_to_fetch_header:

@@ -30,6 +30,7 @@ import argparse
 import json
 import ast
 import base64
+import random
 from functools import wraps
 from decimal import Decimal
 from typing import Optional, TYPE_CHECKING
@@ -1000,11 +1001,34 @@ class Commands:
 
     @command('n')
     def name_show(self, identifier):
+        # Get a list of secondary servers
+        servers = self.network.get_interfaces()    # Those in connected state
+        if len(servers) > 1 and self.network.default_server in servers:
+            servers.remove(self.network.default_server)
+
+        if len(servers) == 0:
+            raise Exception("No servers are connected")
+
+        # Pick a random secondary server, and try to resolve with it.  If we
+        # get a NameNotFoundError, eliminate that server and try again.
+        while len(servers) > 1:
+            name_server = random.SystemRandom().choice(servers)
+
+            try:
+                return self.name_show_with_server(identifier, name_server)
+            except NameNotFoundError:
+                servers.remove(name_server)
+
+        # There's only one server left, so try it and if we get
+        # NameNotFoundError again, return that error to the user.
+        return self.name_show_with_server(identifier, name_server)
+
+    def name_show_with_server(self, identifier, server):
         # TODO: support non-ASCII encodings
         identifier_bytes = identifier.encode("ascii")
         sh = name_identifier_to_scripthash(identifier_bytes)
 
-        txs = self.network.run_from_another_thread(self.network.get_history_for_scripthash(sh))
+        txs = self.network.run_from_another_thread(self.network.get_history_for_scripthash(sh, server=server))
 
         # Check the blockchain height (local and server chains)
         local_chain_height = self.network.get_local_height()
@@ -1054,7 +1078,7 @@ class Commands:
 
         # Batch all of our network calls (other than
         # get_history_for_scripthash) into a single round trip.
-        raw, merkle, header = self.network.run_from_another_thread(self.network.get_tx_merkle_and_header(txid, height))
+        raw, merkle, header = self.network.run_from_another_thread(self.network.get_tx_merkle_and_header(txid, height, server=server))
 
         # (from verifier._request_and_verify_single_proof)
         if height != merkle.get('block_height'):
