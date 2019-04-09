@@ -51,7 +51,7 @@ from . import constants
 from . import blockchain
 from . import bitcoin
 from .blockchain import Blockchain, HEADER_SIZE
-from .interface import (Interface, serialize_server, deserialize_server,
+from .interface import (Interface, InterfaceNameShow, serialize_server, deserialize_server,
                         RequestTimedOut, NetworkTimeout)
 from .version import PROTOCOL_VERSION
 from .simple_config import SimpleConfig
@@ -284,6 +284,7 @@ class Network(PrintError):
         self.interface = None  # type: Interface
         # set of servers we have an ongoing connection with
         self.interfaces = {}  # type: Dict[str, Interface]
+        self.interfaces_name_show = {}  # type: Dict[str, Interface]
         self.auto_connect = self.config.get('auto_connect', True)
         self.connecting = set()
         self.server_queue = None
@@ -470,6 +471,11 @@ class Network(PrintError):
         """The list of servers for the connected interfaces."""
         with self.interfaces_lock:
             return list(self.interfaces)
+
+    def get_interfaces_name_show(self) -> List[str]:
+        """The list of servers for the connected interfaces."""
+        with self.interfaces_lock:
+            return list(self.interfaces_name_show)
 
     @with_recent_servers_lock
     def get_servers(self):
@@ -745,6 +751,29 @@ class Network(PrintError):
         self._add_recent_server(server)
         self.trigger_callback('network_updated')
 
+    @ignore_exceptions  # do not kill main_taskgroup
+    @log_exceptions
+    async def _run_new_interface_name_show(self, server):
+        interface = InterfaceNameShow(self, server, self.proxy)
+        timeout = self.get_network_timeout_seconds(NetworkTimeout.Urgent)
+        try:
+            await asyncio.wait_for(interface.ready, timeout)
+        except BaseException as e:
+            #traceback.print_exc()
+            self.print_error(f"couldn't launch iface {server} -- {repr(e)}")
+            await interface.close()
+            return
+        else:
+            with self.interfaces_lock:
+                assert server not in self.interfaces_name_show
+                self.interfaces_name_show[server] = interface
+        finally:
+            try: self.connecting.remove(server)
+            except KeyError: pass
+
+        self._add_recent_server(server)
+        self.trigger_callback('network_updated')
+
     async def _init_headers_file(self):
         b = blockchain.get_best_chain()
         filename = b.path()
@@ -987,14 +1016,22 @@ class Network(PrintError):
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_history_for_scripthash(self, sh: str, server=None) -> List[dict]:
+    async def get_history_for_scripthash(self, sh: str, server=None, purpose='misc') -> List[dict]:
         if not is_hash256_str(sh):
             raise Exception(f"{repr(sh)} is not a scripthash")
 
         if server is not None:
-            i = self.interfaces[server]
+            if purpose == 'misc':
+                i = self.interfaces[server]
+            elif purpose == 'name-show':
+                i = self.interfaces_name_show[server]
+            else:
+                raise Exception('Unexpected stream isolation purpose')
         else:
-            i = self.interface
+            if purpose == 'misc':
+                i = self.interface
+            else:
+                raise Exception('Unexpected stream isolation purpose')
 
         return await i.session.send_request('blockchain.scripthash.get_history', [sh])
 
@@ -1014,7 +1051,7 @@ class Network(PrintError):
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_tx_merkle_and_header(self, tx_hash: str, tx_height: int, server=None):
+    async def get_tx_merkle_and_header(self, tx_hash: str, tx_height: int, server=None, purpose='misc'):
         tx_method, tx_args = self.construct_get_transaction(tx_hash)
 
         merkle_method, merkle_args = self.construct_get_merkle_for_transaction(tx_hash, tx_height)
@@ -1027,9 +1064,17 @@ class Network(PrintError):
                 need_to_fetch_header = True
 
         if server is not None:
-            i = self.interfaces[server]
+            if purpose == 'misc':
+                i = self.interfaces[server]
+            elif purpose == 'name-show':
+                i = self.interfaces_name_show[server]
+            else:
+                raise Exception('Unexpected stream isolation purpose')
         else:
-            i = self.interface
+            if purpose == 'misc':
+                i = self.interface
+            else:
+                raise Exception('Unexpected stream isolation purpose')
 
         async with i.session.send_batch(raise_errors = True) as batch:
             batch.add_request(tx_method, tx_args)
@@ -1174,6 +1219,7 @@ class Network(PrintError):
             while self.server_queue.qsize() > 0:
                 server = self.server_queue.get()
                 await self.main_taskgroup.spawn(self._run_new_interface(server))
+                await self.main_taskgroup.spawn(self._run_new_interface_name_show(server))
         async def maybe_queue_new_interfaces_to_be_launched_later():
             now = time.time()
             for i in range(self.num_server - len(self.interfaces) - len(self.connecting)):

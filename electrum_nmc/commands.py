@@ -1001,10 +1001,8 @@ class Commands:
 
     @command('n')
     def name_show(self, identifier):
-        # Get a list of secondary servers
-        servers = self.network.get_interfaces()    # Those in connected state
-        if len(servers) > 1 and self.network.default_server in servers:
-            servers.remove(self.network.default_server)
+        # Get a list of name_show servers
+        servers = self.network.get_interfaces_name_show()    # Those in connected state
 
         if len(servers) == 0:
             raise Exception("No servers are connected")
@@ -1028,7 +1026,7 @@ class Commands:
         identifier_bytes = identifier.encode("ascii")
         sh = name_identifier_to_scripthash(identifier_bytes)
 
-        txs = self.network.run_from_another_thread(self.network.get_history_for_scripthash(sh, server=server))
+        txs = self.network.run_from_another_thread(self.network.get_history_for_scripthash(sh, server=server, purpose='name-show'))
 
         # Check the blockchain height (local and server chains)
         local_chain_height = self.network.get_local_height()
@@ -1078,7 +1076,7 @@ class Commands:
 
         # Batch all of our network calls (other than
         # get_history_for_scripthash) into a single round trip.
-        raw, merkle, header = self.network.run_from_another_thread(self.network.get_tx_merkle_and_header(txid, height, server=server))
+        raw, merkle, header = self.network.run_from_another_thread(self.network.get_tx_merkle_and_header(txid, height, server=server, purpose='name-show'))
 
         # (from verifier._request_and_verify_single_proof)
         if height != merkle.get('block_height'):

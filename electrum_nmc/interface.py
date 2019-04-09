@@ -206,13 +206,16 @@ class Interface(PrintError):
         self.group = SilentTaskGroup()
 
     def diagnostic_name(self):
-        return self.host
+        return 'misc/' + self.host
+
+    def get_socks_auth_isolate(self):
+        return aiorpcx.socks.SOCKSUserAuth('electrum-nmc://misc/' + self.server, 'electrum-nmc')
 
     def _set_proxy(self, proxy: dict):
         if proxy:
             username, pw, isolate = proxy.get('user'), proxy.get('password'), proxy.get('isolate')
             if isolate:
-                auth = aiorpcx.socks.SOCKSUserAuth('electrum-nmc://' + self.server, 'electrum-nmc')
+                auth = self.get_socks_auth_isolate()
             elif not username or not pw:
                 auth = None
             else:
@@ -764,6 +767,18 @@ class Interface(PrintError):
         _assert_header_does_not_check_against_any_chain(bad_header)
         self.print_error("exiting backward mode at", height)
         return height, header, bad, bad_header, proof_was_provided
+
+
+class InterfaceNameShow(Interface):
+    def get_socks_auth_isolate(self):
+        return aiorpcx.socks.SOCKSUserAuth('electrum-nmc://name-show/' + self.server, 'electrum-nmc')
+
+    def diagnostic_name(self):
+        return 'name-show/' + self.host
+
+    async def run_fetch_blocks(self):
+        # Without this, the Interface will think the connection timed out.
+        self.ready.set_result(1)
 
 
 def _assert_header_does_not_check_against_any_chain(header: dict) -> None:
