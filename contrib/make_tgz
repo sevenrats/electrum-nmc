@@ -29,3 +29,13 @@ fi
 
     python3 setup.py --quiet sdist --format=zip,gztar,xztar
 )
+
+ELECTRUM_VERSION=$(python3 -c "import importlib.util; version_spec = importlib.util.spec_from_file_location('version', 'electrum_nmc/version.py'); version_module = version = importlib.util.module_from_spec(version_spec); version_spec.loader.exec_module(version_module); print(version.ELECTRUM_VERSION)")
+mkdir -p tmp
+tar --xz -xf dist/Electrum-NMC-${ELECTRUM_VERSION}.tar.xz --directory=tmp
+rm -r tmp/Electrum-NMC-${ELECTRUM_VERSION}/electrum_nmc/gui/
+rm -r tmp/Electrum-NMC-${ELECTRUM_VERSION}/electrum_nmc/plugins/*/
+rm -r tmp/Electrum-NMC-${ELECTRUM_VERSION}/electrum_nmc/locale/
+rm -r tmp/Electrum-NMC-${ELECTRUM_VERSION}/packages/qdarkstyle/
+tar --xz -cf dist/Electrum-NMC-daemon-${ELECTRUM_VERSION}.tar.xz --directory=tmp Electrum-NMC-${ELECTRUM_VERSION}
+rm -r tmp
