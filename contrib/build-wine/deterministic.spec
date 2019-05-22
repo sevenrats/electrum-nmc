@@ -28,6 +28,10 @@ hiddenimports += ['PyQt5.QtPrintSupport']  # needed by Revealer
 # release a new version that includes https://github.com/archos-safe-t/python-safet/commit/b1eab3dba4c04fdfc1fcf17b66662c28c5f2380e
 hiddenimports.remove('safetlib.qt.pinmatrix')
 
+# Work around import aliasing for Namecoin
+# Blacklist kivy since it's not needed; plugins probably aren't needed either.
+hiddenimports += [ e for e in collect_submodules('electrum_nmc') if ('.gui.kivy' not in e and '.plugins.' not in e) ]
+
 
 # Add libusb binary
 binaries = [(PYHOME+"/libusb-1.0.dll", ".")]
