@@ -3585,7 +3585,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         except util.BitcoinException:
             # This happens if the name identifier exceeded the 255-byte limit.
             name_valid = False
-        except BestEffortRequestFailed:
+        except BestEffortRequestFailed as e:
             msg = repr(e)
             self.show_error(msg)
             return
