@@ -196,7 +196,7 @@ class TestCreateRestoreWallet(WalletTestCase):
         d = restore_wallet_from_text(text, path=self.wallet_path, network=None, gap_limit=1)
         wallet = d['wallet']  # type: Standard_Wallet
         self.assertEqual(text, wallet.keystore.get_master_private_key(password=None))
-        self.assertEqual('3Pa4hfP3LFWqa2nfphYaF7PZfdJYNusAnp', wallet.get_receiving_addresses()[0])
+        self.assertEqual(frombtc('3Pa4hfP3LFWqa2nfphYaF7PZfdJYNusAnp'), wallet.get_receiving_addresses()[0])
 
     def test_restore_wallet_from_text_xprv(self):
         text = 'zprvAZzHPqhCMt51fskXBUYB1fTFYgG3CBjJUT4WEZTpGw6hPSDWBPZYZARC5sE9xAcX8NeWvvucFws8vZxEa65RosKAhy7r5MsmKTxr3hmNmea'
