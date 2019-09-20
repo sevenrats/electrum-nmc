@@ -1353,8 +1353,10 @@ class MySocksProxy(aiorpcx.SOCKSProxy):
     def from_proxy_dict(cls, proxy: dict = None) -> Optional['MySocksProxy']:
         if not proxy:
             return None
-        username, pw = proxy.get('user'), proxy.get('password')
-        if not username or not pw:
+        username, pw, isolate = proxy.get('user'), proxy.get('password'), proxy.get('isolate')
+        if isolate:
+            auth = aiorpcx.socks.SOCKSRandomAuth()
+        elif not username or not pw:
             auth = None
         else:
             auth = aiorpcx.socks.SOCKSUserAuth(username, pw)
