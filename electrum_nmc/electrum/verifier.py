@@ -132,6 +132,8 @@ class SPV(NetworkJobOnDefaultServer):
                               txpos=pos,
                               header_hash=header_hash)
         self.wallet.add_verified_tx(tx_hash, tx_info)
+        #if self.is_up_to_date() and self.wallet.is_up_to_date():
+        #    self.wallet.save_verified_tx(write=True)
 
     async def _maybe_undo_verifications(self):
         old_chain = self.blockchain
