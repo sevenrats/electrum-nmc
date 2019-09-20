@@ -1191,14 +1191,6 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         """
         return self.blockchain().height()
 
-    def export_checkpoints(self, path):
-        """Run manually to generate blockchain checkpoints.
-        Kept for console use only.
-        """
-        cp = self.blockchain().get_checkpoints()
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(json.dumps(cp, indent=4))
-
     async def _start(self):
         assert not self.taskgroup
         self.taskgroup = taskgroup = SilentTaskGroup()
