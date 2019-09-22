@@ -922,6 +922,20 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                 return False
         return True
 
+    def stream_isolated(func):
+        async def wrapper(self, *args, **kwargs):
+            if 'stream_id' in kwargs:
+                kwargs['interface'] = self.get_interface_for_stream_id(kwargs['stream_id'])
+                if kwargs['interface'] is None:
+                    raise Exception("No clean interface is ready")
+                kwargs.pop('stream_id')
+            elif 'interface' not in kwargs:
+                kwargs['interface'] = self.interface
+
+            return await func(self, *args, **kwargs)
+
+        return wrapper
+
     def best_effort_reliable(func):
         async def make_reliable_wrapper(self: 'Network', *args, **kwargs):
             for i in range(10):
@@ -966,15 +980,17 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_merkle_for_transaction(self, tx_hash: str, tx_height: int) -> dict:
-        return await self.interface.get_merkle_for_transaction(tx_hash=tx_hash, tx_height=tx_height)
+    @stream_isolated
+    async def get_merkle_for_transaction(self, tx_hash: str, tx_height: int, interface: Interface = None) -> dict:
+        return await interface.get_merkle_for_transaction(tx_hash=tx_hash, tx_height=tx_height)
 
     @best_effort_reliable
-    async def broadcast_transaction(self, tx: 'Transaction', *, timeout=None) -> None:
+    @stream_isolated
+    async def broadcast_transaction(self, tx: 'Transaction', *, timeout=None, interface: Interface = None) -> None:
         if timeout is None:
             timeout = self.get_network_timeout_seconds(NetworkTimeout.Urgent)
         try:
-            out = await self.interface.session.send_request('blockchain.transaction.broadcast', [tx.serialize()], timeout=timeout)
+            out = await interface.session.send_request('blockchain.transaction.broadcast', [tx.serialize()], timeout=timeout)
             # note: both 'out' and exception messages are untrusted input from the server
         except (RequestTimedOut, asyncio.CancelledError, asyncio.TimeoutError):
             raise  # pass-through
@@ -1201,31 +1217,33 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def request_chunk(self, height: int, tip=None, *, can_return_early=False):
-        return await self.interface.request_chunk(height, tip=tip, can_return_early=can_return_early)
+    @stream_isolated
+    async def request_chunk(self, height: int, tip=None, *, can_return_early=False, interface: Interface = None):
+        return await interface.request_chunk(height, tip=tip, can_return_early=can_return_early)
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_transaction(self, tx_hash: str, *, timeout=None) -> str:
-        return await self.interface.get_transaction(tx_hash=tx_hash, timeout=timeout)
+    @stream_isolated
+    async def get_transaction(self, tx_hash: str, *, timeout=None, interface: Interface = None) -> str:
+        return await interface.get_transaction(tx_hash=tx_hash, timeout=timeout)
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_history_for_scripthash(self, sh: str, stream_id=None) -> List[dict]:
-        interface = self.get_interface_for_stream_id(stream_id)
-        if interface is None:
-            raise Exception("No clean interface is ready")
+    @stream_isolated
+    async def get_history_for_scripthash(self, sh: str, interface: Interface = None) -> List[dict]:
         return await interface.get_history_for_scripthash(sh)
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def listunspent_for_scripthash(self, sh: str) -> List[dict]:
-        return await self.interface.listunspent_for_scripthash(sh)
+    @stream_isolated
+    async def listunspent_for_scripthash(self, sh: str, interface: Interface = None) -> List[dict]:
+        return await interface.listunspent_for_scripthash(sh)
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_balance_for_scripthash(self, sh: str) -> dict:
-        return await self.interface.get_balance_for_scripthash(sh)
+    @stream_isolated
+    async def get_balance_for_scripthash(self, sh: str, interface: Interface = None) -> dict:
+        return await interface.get_balance_for_scripthash(sh)
 
     @best_effort_reliable
     @catch_server_exceptions
