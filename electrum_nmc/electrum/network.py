@@ -933,7 +933,10 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
     def best_effort_reliable(func):
         async def make_reliable_wrapper(self: 'Network', *args, **kwargs):
             for i in range(10):
-                iface = self.interface
+                if 'stream_id' in kwargs and kwargs['stream_id'] is not None:
+                    iface = self.get_interface_for_stream_id(kwargs['stream_id'])
+                else:
+                    iface = self.interface
                 # retry until there is a main interface
                 if not iface:
                     try:
