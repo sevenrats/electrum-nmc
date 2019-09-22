@@ -737,13 +737,13 @@ class Commands:
         return tx.serialize()
 
     @command('wp')
-    async def name_new(self, identifier, destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, wallet: Abstract_Wallet = None):
+    async def name_new(self, identifier, destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
         """Create a name_new transaction. """
         self.nocheck = nocheck
         if not allow_existing:
             name_exists = True
             try:
-                show = await self.name_show(identifier)
+                show = await self.name_show(identifier, stream_id=stream_id)
             except NameNotFoundError:
                 name_exists = False
             if name_exists:
@@ -944,7 +944,7 @@ class Commands:
         return tx.serialize()
 
     @command('wpn')
-    async def name_autoregister(self, identifier, value="", destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, wallet: Abstract_Wallet = None):
+    async def name_autoregister(self, identifier, value="", destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
         """Creates a name_new transaction, broadcasts it, creates a corresponding name_firstupdate transaction, and queues it. """
 
         # Validate the value before we try to pre-register the name.  That way,
@@ -965,6 +965,7 @@ class Commands:
                                    password=password,
                                    locktime=locktime,
                                    allow_existing=allow_existing,
+                                   stream_id=stream_id,,
                                    wallet=wallet)
         new_txid = new_result["txid"]
         new_rand = new_result["rand"]
@@ -1006,7 +1007,7 @@ class Commands:
             await self.removelocaltx(new_txid, wallet=wallet)
             raise e
 
-        await self.broadcast(new_tx)
+        await self.broadcast(new_tx, stream_id=stream_id)
 
     @command('w')
     async def onchain_history(self, year=None, show_addresses=False, show_fiat=False, wallet: Abstract_Wallet = None):
@@ -1274,7 +1275,9 @@ class Commands:
             if trigger_name is not None:
                 # TODO: handle non-ASCII trigger_name
                 try:
-                    current_height = await self.name_show(trigger_name)["height"]
+                    # TODO: Store a stream ID in the queue, so that we can be
+                    # more intelligent than using the txid.
+                    current_height = await self.name_show(trigger_name, stream_id="txid: " + txid)["height"]
                     current_depth = chain_height - current_height + 1
                 except NameNotFoundError:
                     current_depth = constants.net.NAME_EXPIRATION
@@ -1287,7 +1290,9 @@ class Commands:
             if current_depth >= trigger_depth:
                 tx = queue_item["tx"]
                 try:
-                    await self.broadcast(tx)
+                    # TODO: Store a stream ID in the queue, so that we can be
+                    # more intelligent than using the txid.
+                    await self.broadcast(tx, stream_id="txid: " + txid)
                 except Exception as e:
                     errors[txid] = str(e)
 
@@ -1364,12 +1369,12 @@ class Commands:
         return self.config.fee_per_kb(dyn=dyn, mempool=mempool, fee_level=fee_level)
 
     @command('n')
-    async def name_show(self, identifier, wallet: Abstract_Wallet = None):
+    async def name_show(self, identifier, stream_id=None, wallet: Abstract_Wallet = None):
         # TODO: support non-ASCII encodings
         identifier_bytes = identifier.encode("ascii")
         sh = name_identifier_to_scripthash(identifier_bytes)
 
-        txs = await self.network.get_history_for_scripthash(sh)
+        txs = await self.network.get_history_for_scripthash(sh, stream_id=stream_id)
 
         # Check the blockchain height (local and server chains)
         local_chain_height = self.network.get_local_height()
@@ -1440,10 +1445,10 @@ class Commands:
         header = self.network.blockchain().read_header(height)
         if header is None:
             if height < constants.net.max_checkpoint():
-                await self.network.request_chunk(height, None)
+                await self.network.request_chunk(height, None, stream_id=stream_id)
 
         # (from verifier._request_and_verify_single_proof)
-        merkle = await self.network.get_merkle_for_transaction(txid, height)
+        merkle = await self.network.get_merkle_for_transaction(txid, height, stream_id=stream_id)
         if height != merkle.get('block_height'):
             raise Exception('requested height {} differs from received height {} for txid {}'
                             .format(height, merkle.get('block_height'), txid))
@@ -1461,7 +1466,7 @@ class Commands:
         if wallet and txid in wallet.db.transactions:
             tx = wallet.db.transactions[txid]
         else:
-            raw = await self.network.get_transaction(txid)
+            raw = await self.network.get_transaction(txid, stream_id=stream_id)
             if raw:
                 tx = Transaction(raw)
             else:
