@@ -296,12 +296,12 @@ class Commands:
         return result
 
     @command('n')
-    def getaddressunspent(self, address):
+    def getaddressunspent(self, address, stream_id=None):
         """Returns the UTXO list of any address. Note: This
         is a walletless server query, results are not checked by SPV.
         """
         sh = bitcoin.address_to_scripthash(address)
-        return self.network.run_from_another_thread(self.network.listunspent_for_scripthash(sh))
+        return self.network.run_from_another_thread(self.network.listunspent_for_scripthash(sh, stream_id=stream_id))
 
     @command('')
     def serialize(self, jsontx):
@@ -354,10 +354,10 @@ class Commands:
         return tx.deserialize(force_full_parse=True)
 
     @command('n')
-    def broadcast(self, tx):
+    def broadcast(self, tx, stream_id=None):
         """Broadcast a transaction to the network. """
         tx = Transaction(tx)
-        self.network.run_from_another_thread(self.network.broadcast_transaction(tx))
+        self.network.run_from_another_thread(self.network.broadcast_transaction(tx, stream_id=stream_id))
         return tx.txid()
 
     @command('')
@@ -420,21 +420,21 @@ class Commands:
         return out
 
     @command('n')
-    def getaddressbalance(self, address):
+    def getaddressbalance(self, address, stream_id=None):
         """Return the balance of any address. Note: This is a walletless
         server query, results are not checked by SPV.
         """
         sh = bitcoin.address_to_scripthash(address)
-        out = self.network.run_from_another_thread(self.network.get_balance_for_scripthash(sh))
+        out = self.network.run_from_another_thread(self.network.get_balance_for_scripthash(sh, stream_id=stream_id))
         out["confirmed"] =  str(Decimal(out["confirmed"])/COIN)
         out["unconfirmed"] =  str(Decimal(out["unconfirmed"])/COIN)
         return out
 
     @command('n')
-    def getmerkle(self, txid, height):
+    def getmerkle(self, txid, height, stream_id=None):
         """Get Merkle branch of a transaction included in a block. Electrum
         uses this to verify transactions (Simple Payment Verification)."""
-        return self.network.run_from_another_thread(self.network.get_merkle_for_transaction(txid, int(height)))
+        return self.network.run_from_another_thread(self.network.get_merkle_for_transaction(txid, int(height), stream_id=stream_id))
 
     @command('n')
     def getservers(self):
@@ -767,13 +767,13 @@ class Commands:
         return out
 
     @command('n')
-    def gettransaction(self, txid):
+    def gettransaction(self, txid, stream_id=None):
         """Retrieve a transaction. """
         tx = None
         if self.wallet:
             tx = self.wallet.db.get_transaction(txid)
         if tx is None:
-            raw = self.network.run_from_another_thread(self.network.get_transaction(txid))
+            raw = self.network.run_from_another_thread(self.network.get_transaction(txid, stream_id=stream_id))
             if raw:
                 tx = Transaction(raw)
             else:
