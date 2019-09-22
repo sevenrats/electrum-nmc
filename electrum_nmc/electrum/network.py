@@ -53,7 +53,7 @@ from . import bitcoin
 from . import dns_hacks
 from .transaction import Transaction
 from .blockchain import Blockchain, HEADER_SIZE
-from .interface import (Interface, PREFERRED_NETWORK_PROTOCOL,
+from .interface import (Interface, InterfaceSecondary, PREFERRED_NETWORK_PROTOCOL,
                         RequestTimedOut, NetworkTimeout, BUCKET_NAME_OF_ONION_SERVERS,
                         NetworkException, RequestCorrupted, ServerAddr)
 from .version import PROTOCOL_VERSION
@@ -331,6 +331,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         self.default_server_changed_event = asyncio.Event()
         # set of servers we have an ongoing connection with
         self.interfaces = {}
+        self.interfaces_for_stream_ids = {}
         self.auto_connect = self.config.get('auto_connect', True)
         self._connecting = set()
         self.proxy = None
@@ -505,6 +506,44 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         """The list of servers for the connected interfaces."""
         with self.interfaces_lock:
             return list(self.interfaces)
+
+    async def get_interface_for_stream_id(self, stream_id) -> Interface:
+        """If a proxy is enabled, returns an Interface using a TCP connection
+        that is guaranteed to be unique per stream_id.  Otherwise, just returns
+        the main Interface.  Useful for improved privacy with Tor stream
+        isolation."""
+
+        # Default to self.interface if no stream ID was provided
+        if stream_id is None:
+            return self.interface
+
+        # If no anonymizing proxy is in use, then using multiple servers will
+        # probably do more harm than good.
+        if self.proxy is None:
+            return self.interface
+
+        # If "oneserver" mode is in use, then the user doesn't want requests to
+        # leak outside of their main server.
+        if self.oneserver:
+            return self.interface
+
+        try:
+            # Reuse an existing interface if it already exists for this stream
+            # ID.
+            with self.interfaces_lock:
+                interface = self.interfaces_for_stream_ids[stream_id]
+        except KeyError:
+            # Otherwise, create a new interface with a randomly selected
+            # server.  If, for some reason, the interface connection fails,
+            # keep trying with random servers until we get a connection.
+            interface = None
+            while interface is None:
+                server = pick_random_server(self.get_servers())
+                interface = await self._run_new_interface_for_stream_id(server)
+            with self.interfaces_lock:
+                self.interfaces_for_stream_ids[stream_id] = interface
+
+        return interface
 
     def get_fee_estimates(self):
         from statistics import median
@@ -715,11 +754,19 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
 
     async def _close_interface(self, interface: Interface):
         if interface:
-            with self.interfaces_lock:
-                if self.interfaces.get(interface.server) == interface:
-                    self.interfaces.pop(interface.server)
-            if interface.server == self.default_server:
-                self.interface = None
+            if isinstance(interface, InterfaceSecondary):
+                # If it's a secondary interface, then remove it for the stream
+                # ID that it's associated with.
+                stream_ids = list(self.interfaces_for_stream_ids)
+                for stream_id in stream_ids:
+                    if self.interfaces_for_stream_ids[stream_id] == interface:
+                        self.interfaces_for_stream_ids.pop(stream_id)
+            else:
+                with self.interfaces_lock:
+                    if self.interfaces.get(interface.server) == interface:
+                        self.interfaces.pop(interface.server)
+                if interface.server == self.default_server:
+                    self.interface = None
             await interface.close()
 
     @with_recent_servers_lock
@@ -736,9 +783,10 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         '''A connection to server either went down, or was never made.
         We distinguish by whether it is in self.interfaces.'''
         if not interface: return
-        server = interface.server
-        if server == self.default_server:
-            self._set_status('disconnected')
+        if not isinstance(interface, InterfaceSecondary):
+            server = interface.server
+            if server == self.default_server:
+                self._set_status('disconnected')
         await self._close_interface(interface)
         util.trigger_callback('network_updated')
 
@@ -782,6 +830,24 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
 
         self._add_recent_server(server)
         util.trigger_callback('network_updated')
+
+    @ignore_exceptions  # do not kill main_taskgroup
+    @log_exceptions
+    async def _run_new_interface_for_stream_id(self, server):
+        interface = InterfaceSecondary(network=self, server=server, proxy=self.proxy)
+        # note: using longer timeouts here as DNS can sometimes be slow!
+        timeout = self.get_network_timeout_seconds(NetworkTimeout.Generic)
+        try:
+            await asyncio.wait_for(interface.ready, timeout)
+        except BaseException as e:
+            self.logger.info(f"couldn't launch iface {server} -- {repr(e)}")
+            await interface.close()
+            return None
+
+        self._add_recent_server(server)
+        util.trigger_callback('network_updated')
+
+        return interface
 
     def check_interface_against_healthy_spread_of_connected_servers(self, iface_to_check: Interface) -> bool:
         # main interface is exempt. this makes switching servers easier
@@ -1112,10 +1178,11 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
 
     @best_effort_reliable
     @catch_server_exceptions
-    async def get_history_for_scripthash(self, sh: str) -> List[dict]:
+    async def get_history_for_scripthash(self, sh: str, stream_id=None) -> List[dict]:
         if not is_hash256_str(sh):
             raise Exception(f"{repr(sh)} is not a scripthash")
-        return await self.interface.session.send_request('blockchain.scripthash.get_history', [sh])
+        interface = await self.get_interface_for_stream_id(stream_id)
+        return await interface.session.send_request('blockchain.scripthash.get_history', [sh])
 
     @best_effort_reliable
     @catch_server_exceptions
@@ -1251,6 +1318,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         self.taskgroup = None
         self.interface = None
         self.interfaces = {}
+        self.interfaces_for_stream_ids = {}
         self._connecting.clear()
         if not full_shutdown:
             util.trigger_callback('network_updated')
