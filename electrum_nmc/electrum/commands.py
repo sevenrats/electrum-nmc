@@ -1150,11 +1150,11 @@ class Commands:
             if raw:
                 tx = Transaction(raw)
             else:
-                raise Exception("Unknown transaction")
+                raise Exception("Unknown transaction (txid {})".format(txid))
         elif verify:
             await verifier
         if tx.txid() != txid:
-            raise Exception("Mismatching txid")
+            raise Exception("Mismatching txid ({} vs {})".format(tx.txid(), txid))
         return tx.serialize()
 
     @command('')
@@ -1502,39 +1502,8 @@ class Commands:
 
         # The height is now verified to be safe.
 
-        # (from verifier._request_proofs) if it's in the checkpoint region, we still might not have the header
-        header = self.network.blockchain().read_header(height)
-        if header is None:
-            if height < constants.net.max_checkpoint():
-                await self.network.request_chunk(height, None, stream_id=stream_id)
-
-        # (from verifier._request_and_verify_single_proof)
-        merkle = await self.network.get_merkle_for_transaction(txid, height, stream_id=stream_id)
-        if height != merkle.get('block_height'):
-            raise Exception('requested height {} differs from received height {} for txid {}'
-                            .format(height, merkle.get('block_height'), txid))
-        pos = merkle.get('pos')
-        merkle_branch = merkle.get('merkle')
-        async def wait_for_header():
-            # we need to wait if header sync/reorg is still ongoing, hence lock:
-            async with self.network.bhi_lock:
-                return self.network.blockchain().read_header(height)
-        header = await wait_for_header()
-        verify_tx_is_in_block(txid, merkle_branch, pos, header, height)
-
-        # The txid is now verified to come from a safe height in the blockchain.
-
-        if wallet and txid in wallet.db.transactions:
-            tx = wallet.db.transactions[txid]
-        else:
-            raw = await self.network.get_transaction(txid, stream_id=stream_id)
-            if raw:
-                tx = Transaction(raw)
-            else:
-                raise Exception("Unknown transaction (txid {})".format(txid))
-
-        if tx.txid() != txid:
-            raise Exception("txid mismatch ({} vs {})".format(tx.txid(), txid))
+        hextx = await self.gettransaction(txid, verify=True, height=height, stream_id=stream_id, wallet=wallet)
+        tx = Transaction(hextx)
 
         # the tx is now verified to come from a safe height in the blockchain
 
