@@ -63,6 +63,7 @@ from .version import ELECTRUM_VERSION
 from .simple_config import SimpleConfig
 from .invoices import LNInvoice
 from . import submarine_swaps
+from .verifier import SPV
 from . import constants
 
 
@@ -1095,17 +1096,29 @@ class Commands:
         return out
 
     @command('n')
-    async def gettransaction(self, txid, stream_id=None, wallet: Abstract_Wallet = None):
+    async def gettransaction(self, txid, verify=False, height=None, stream_id=None, wallet: Abstract_Wallet = None):
         """Retrieve a transaction. """
+        if verify:
+            if height is None:
+                raise Exception("Missing height")
+            verifier = SPV(self.network, None)._request_and_verify_single_proof(txid, height)
         tx = None
         if wallet:
             tx = wallet.db.get_transaction(txid)
         if tx is None:
-            raw = await self.network.get_transaction(txid, stream_id=stream_id)
+            raw_getter = self.network.get_transaction(txid, stream_id=stream_id)
+            if verify:
+                async def getters():
+                    return await asyncio.gather(verifier, raw_getter)
+                _, raw = await getters()
+            else:
+                raw = await raw_getter
             if raw:
                 tx = Transaction(raw)
             else:
                 raise Exception("Unknown transaction")
+        elif verify:
+            await verifier
         if tx.txid() != txid:
             raise Exception("Mismatching txid")
         return tx.serialize()
@@ -1807,8 +1820,10 @@ command_options = {
     'fee_level':   (None, "Float between 0.0 and 1.0, representing fee slider position"),
     'from_height': (None, "Only show transactions that confirmed after given block height"),
     'to_height':   (None, "Only show transactions that confirmed before given block height"),
-    'iknowwhatimdoing': (None, "Acknowledge that I understand the full implications of what I am about to do"),
+ 'iknowwhatimdoing': (None, "Acknowledge that I understand the full implications of what I am about to do"),
     'gossip':      (None, "Apply command to gossip node instead of wallet"),
+    'verify':      (None, "Verify transaction via SPV"),
+    'height':      (None, "Block height"),
     'stream_id':   (None, "Stream-isolate the network connection using this stream ID (only used with Tor)"),
     'destination': (None, "Namecoin address, contact or alias"),
     'amount':      (None, "Amount to be sent (in NMC). Type \'!\' to send the maximum available."),
