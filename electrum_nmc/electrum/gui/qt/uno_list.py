@@ -99,7 +99,10 @@ class UNOList(UTXOList):
             height = x.get('height')
             header_at_tip = self.network.blockchain().header_at_tip()
             #chain_height = self.network.blockchain().height()
-            expires_in, expires_datetime = name_expiration_datetime_estimate(height, header_at_tip['block_height'], header_at_tip['timestamp'])
+            if header_at_tip is not None:
+                expires_in, expires_datetime = name_expiration_datetime_estimate(height, header_at_tip['block_height'], header_at_tip['timestamp'])
+            else:
+                expires_in, expires_datetime = None, None
             status = '' if expires_in is not None else _('Update Pending')
 
         if 'name' in name_op:
