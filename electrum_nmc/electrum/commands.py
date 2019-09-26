@@ -30,6 +30,7 @@ import argparse
 import json
 import ast
 import base64
+import asyncio
 from functools import wraps
 from decimal import Decimal
 from typing import Optional, TYPE_CHECKING
@@ -47,6 +48,7 @@ from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .synchronizer import Notifier
 from .wallet import Abstract_Wallet, create_new_wallet, restore_wallet_from_text
 from .address_synchronizer import TX_HEIGHT_LOCAL
+from .verifier import SPV
 from . import constants
 
 if TYPE_CHECKING:
@@ -767,17 +769,31 @@ class Commands:
         return out
 
     @command('n')
-    def gettransaction(self, txid, stream_id=None):
+    def gettransaction(self, txid, verify=False, height=None, stream_id=None):
         """Retrieve a transaction. """
+        if verify:
+            if height is None:
+                raise Exception("Missing height")
+            verifier = SPV(self.network, None)._request_and_verify_single_proof(txid, height)
         tx = None
         if self.wallet:
             tx = self.wallet.db.get_transaction(txid)
         if tx is None:
-            raw = self.network.run_from_another_thread(self.network.get_transaction(txid, stream_id=stream_id))
+            raw_getter = self.network.get_transaction(txid, stream_id=stream_id)
+            if verify:
+                async def getters():
+                    return await asyncio.gather(verifier, raw_getter)
+                _, raw = self.network.run_from_another_thread(getters())
+            else:
+                raw = self.network.run_from_another_thread(raw_getter)
             if raw:
                 tx = Transaction(raw)
             else:
                 raise Exception("Unknown transaction")
+        elif verify:
+            self.network.run_from_another_thread(verifier)
+        if verify and tx.txid() != txid:
+            raise Exception("Wrong txid")
         return tx.as_dict()
 
     @command('')
@@ -1208,6 +1224,8 @@ command_options = {
     'fee_level':   (None, "Float between 0.0 and 1.0, representing fee slider position"),
     'from_height': (None, "Only show transactions that confirmed after given block height"),
     'to_height':   (None, "Only show transactions that confirmed before given block height"),
+    'verify':      (None, "Verify transaction via SPV"),
+    'height':      (None, "Block height"),
     'stream_id':   (None, "Stream-isolate the network connection using this stream ID (only used with Tor)"),
     'destination': (None, "Namecoin address, contact or alias"),
     'amount':      (None, "Amount to be sent (in NMC). Type \'!\' to send the maximum available."),
