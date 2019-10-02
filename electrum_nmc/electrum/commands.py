@@ -51,8 +51,6 @@ from .transaction import (Transaction, multisig_script, TxOutput, PartialTransac
                           tx_from_any, PartialTxInput, TxOutpoint)
 from .invoices import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .synchronizer import Notifier
-from .wallet import Abstract_Wallet, create_new_wallet, restore_wallet_from_text, Deterministic_Wallet
-from .address_synchronizer import TX_HEIGHT_LOCAL
 from .mnemonic import Mnemonic
 from .lnutil import SENT, RECEIVED
 from .lnutil import LnFeatures
@@ -66,6 +64,11 @@ from . import submarine_swaps
 from .verifier import SPV
 from . import constants
 
+try:
+    from .wallet import Abstract_Wallet, create_new_wallet, restore_wallet_from_text, Deterministic_Wallet
+    from .address_synchronizer import TX_HEIGHT_LOCAL
+except ImportError:
+    pass
 
 if TYPE_CHECKING:
     from .network import Network
