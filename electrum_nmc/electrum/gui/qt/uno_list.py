@@ -212,13 +212,17 @@ class UNOList(UTXOList):
 
         if selected_data is not None and len(selected_data) == 1:
             data = selected_data[0]
-            try:
-                copy_ascii = data.decode('ascii')
-                menu.addAction(_("Copy {} as ASCII").format(selected_data_type), lambda: self.parent.app.clipboard().setText(copy_ascii))
-            except UnicodeDecodeError:
-                pass
-            copy_hex = bh2u(data)
-            menu.addAction(_("Copy {} as hex").format(selected_data_type), lambda: self.parent.app.clipboard().setText(copy_hex))
+            # data will be None if this row is a name_new that we haven't
+            # queued a name_firstupdate for, so we don't know the identifier or
+            # value.
+            if data is not None:
+                try:
+                    copy_ascii = data.decode('ascii')
+                    menu.addAction(_("Copy {} as ASCII").format(selected_data_type), lambda: self.parent.app.clipboard().setText(copy_ascii))
+                except UnicodeDecodeError:
+                    pass
+                copy_hex = bh2u(data)
+                menu.addAction(_("Copy {} as hex").format(selected_data_type), lambda: self.parent.app.clipboard().setText(copy_hex))
 
         menu.exec_(self.viewport().mapToGlobal(position))
 
