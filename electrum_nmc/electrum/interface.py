@@ -436,6 +436,14 @@ class Interface(Logger):
                 self.logger.warning(f"disconnecting due to {repr(e)}")
                 self.logger.debug(f"(disconnect) trace for {repr(e)}", exc_info=True)
             finally:
+                # Cancel any chunks that were pending, otherwise chain sync
+                # will get stuck.
+                async with self.network.bhi_lock:
+                    canceled_pending_chunks = [index for index in self.network.pending_chunks if "interface" in self.network.pending_chunks[index] and self.network.pending_chunks[index]["interface"] == self]
+                    for index in canceled_pending_chunks:
+                        self.logger.info(f"Canceling pending chunk {index} due to disconnect")
+                        del self.network.pending_chunks[index]
+
                 await self.network.connection_down(self)
                 if not self.got_disconnected.done():
                     self.got_disconnected.set_result(1)
@@ -596,23 +604,57 @@ class Interface(Logger):
 
     async def request_chunk(self, height: int, tip=None, *, can_return_early=False):
         index = height // 2016
-        if can_return_early and index in self._requested_chunks:
-            return
 
-        self.logger.info(f"requesting chunk from height {height}")
-        size = 2016
-        if tip is not None:
-            size = min(size, tip - index * 2016 + 1)
-            size = max(size, 0)
-        try:
-            self._requested_chunks.add(index)
-            res, proof_was_provided = await self.request_headers(index * 2016, size)
-        finally:
-            self._requested_chunks.discard(index)
-        conn = self.blockchain.connect_chunk(index, res['hex'], proof_was_provided)
-        if not conn:
-            return conn, 0
-        return conn, res['count']
+        # Loop until the originally requested chunk has been passed to
+        # connect_chunk.  In the meantime, pre-fetch more chunks.
+        while True:
+            async with self.network.bhi_lock:
+                # Check if the originally requested chunk has arrived at this interface
+                if str(index) in self.network.pending_chunks and 'res' in self.network.pending_chunks[str(index)]:
+                    if self.network.pending_chunks[str(index)]['interface'] == self:
+                        self.logger.info(f"trying to connect chunk from height {height}")
+                        res = self.network.pending_chunks[str(index)]['res']
+                        proof_was_provided = self.network.pending_chunks[str(index)]['proof_was_provided']
+                        conn = self.blockchain.connect_chunk(index, res['hex'], proof_was_provided)
+                        del self.network.pending_chunks[str(index)]
+                        if not conn:
+                            return conn, 0
+                        return conn, res['count']
+
+                # Check if another interface has already connected this chunk
+                if self.network.blockchain().height() >= height:
+                    size = 2016
+                    size = min(size, self.network.blockchain().height() - index * 2016 + 1)
+                    size = max(size, 0)
+                    return True, size
+
+                # Calculate the next chunk to pre-fetch
+                ahead_height, ahead_index = height, index
+                while str(ahead_index) in self.network.pending_chunks:
+                    ahead_index += 1
+                    ahead_height += 2016
+
+                # If we've already queued through the server's tip, stop pre-fetching
+                if tip is not None and ahead_index * 2016 > tip:
+                    await asyncio.sleep(0.005)
+                    continue
+                self.network.pending_chunks[str(ahead_index)] = {'interface': self}
+
+            if can_return_early and ahead_index in self._requested_chunks:
+                return
+
+            self.logger.info(f"requesting chunk from height {ahead_height}")
+            size = 2016
+            if tip is not None:
+                size = min(size, tip - ahead_index * 2016 + 1)
+                size = max(size, 0)
+            try:
+                self._requested_chunks.add(ahead_index)
+                res, proof_was_provided = await self.request_headers(ahead_index * 2016, size)
+            finally:
+                self._requested_chunks.discard(ahead_index)
+            async with self.network.bhi_lock:
+                self.network.pending_chunks[str(ahead_index)] = {'res': res, 'proof_was_provided': proof_was_provided, 'interface': self}
 
     async def request_headers(self, height, count):
         if count > 2016:
@@ -764,8 +806,8 @@ class Interface(Logger):
                 return
             _, height = await self.step(height, header)
             # in the simple case, height == self.tip+1
-            if height <= self.tip:
-                await self.sync_until(height)
+        if height <= self.tip:
+            await self.sync_until(height)
 
     async def sync_until(self, height, next_height=None):
         if next_height is None:
@@ -778,14 +820,17 @@ class Interface(Logger):
                 if not could_connect:
                     if height <= constants.net.max_checkpoint():
                         raise GracefulDisconnect('server chain conflicts with checkpoints or genesis')
-                    last, height = await self.step(height)
+                    async with self.network.bhi_lock:
+                        last, height = await self.step(height)
                     continue
-                util.trigger_callback('network_updated')
+                async with self.network.bhi_lock:
+                    util.trigger_callback('network_updated')
                 height = (height // 2016 * 2016) + num_headers
                 assert height <= next_height+1, (height, self.tip)
                 last = 'catchup'
             else:
-                last, height = await self.step(height)
+                async with self.network.bhi_lock:
+                    last, height = await self.step(height)
             assert (prev_last, prev_height) != (last, height), 'had to prevent infinite loop in interface.sync_until'
         return last, height
 
