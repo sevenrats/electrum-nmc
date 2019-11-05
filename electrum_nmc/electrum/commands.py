@@ -1030,7 +1030,15 @@ class Commands:
         return self.config.fee_per_kb(dyn=dyn, mempool=mempool, fee_level=fee_level)
 
     @command('n')
-    def name_show(self, identifier, stream_id=None):
+    def name_show(self, identifier, options=None, stream_id=None):
+        # Handle Namecoin-Core-style options
+        if options is not None:
+            if "streamID" in options:
+                if stream_id is None:
+                    stream_id = options["streamID"]
+                else:
+                    raise Exception("stream_id specified in both Electrum-NMC and Namecoin Core style")
+
         # TODO: support non-ASCII encodings
         identifier_bytes = identifier.encode("ascii")
         sh = name_identifier_to_scripthash(identifier_bytes)
@@ -1208,6 +1216,7 @@ command_options = {
     'value':       (None, "The value to assign to the name"),
     'trigger_txid':(None, "Broadcast the transaction when this txid reaches the specified number of confirmations"),
     'trigger_name':(None, "Broadcast the transaction when this name reaches the specified number of confirmations"),
+    'options':     (None, "Options in Namecoin-Core-style dict"),
 }
 
 
