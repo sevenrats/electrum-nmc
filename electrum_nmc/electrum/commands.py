@@ -1426,10 +1426,24 @@ class Commands:
         return self.config.fee_per_kb(dyn=dyn, mempool=mempool, fee_level=fee_level)
 
     @command('n')
-    async def name_show(self, identifier, name_encoding='ascii', value_encoding='ascii', stream_id=None, wallet: Abstract_Wallet = None):
+    async def name_show(self, identifier, options=None, name_encoding='ascii', value_encoding='ascii', stream_id=None, wallet: Abstract_Wallet = None):
         """Look up the current data for the given name.  Fails if the name
         doesn't exist.
         """
+
+        # Handle Namecoin-Core-style options
+        if options is not None:
+            if "streamID" in options:
+                if stream_id is None:
+                    stream_id = options["streamID"]
+                else:
+                    raise Exception("stream_id specified in both Electrum-NMC and Namecoin Core style")
+            if "nameEncoding" in options:
+                # TODO: make sure name_encoding is None
+                name_encoding = options["nameEncoding"]
+            if "valueEncoding" in options:
+                # TODO: make sure value_encoding is None
+                value_encoding = options["valueEncoding"]
 
         name_encoding = Encoding(name_encoding)
         value_encoding = Encoding(value_encoding)
@@ -1880,6 +1894,7 @@ command_options = {
     'name_new_txid':(None, "Transaction ID for the name pre-registration (returned by name_new; you can usually omit this)"),
     'trigger_txid':(None, "Broadcast the transaction when this txid reaches the specified number of confirmations"),
     'trigger_name':(None, "Broadcast the transaction when this name reaches the specified number of confirmations"),
+    'options':     (None, "Options in Namecoin-Core-style dict"),
 }
 
 
