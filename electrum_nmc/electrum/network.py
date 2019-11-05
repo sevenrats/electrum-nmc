@@ -292,6 +292,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         if self._blockchain_preferred_block is None:
             self._set_preferred_chain(None)
         self._blockchain = blockchain.get_best_chain()
+        self.pending_chunks = {}
 
         self._allowed_protocols = {PREFERRED_NETWORK_PROTOCOL}
 
