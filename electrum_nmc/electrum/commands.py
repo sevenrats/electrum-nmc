@@ -1430,6 +1430,11 @@ class Commands:
 
         # Handle Namecoin-Core-style options
         if options is not None:
+            if "streamID" in options:
+                if stream_id is None:
+                    stream_id = options["streamID"]
+                else:
+                    raise Exception("stream_id specified in both Electrum-NMC and Namecoin Core style")
             if "nameEncoding" in options:
                 # TODO: make sure name_encoding is None
                 name_encoding = options["nameEncoding"]
