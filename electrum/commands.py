@@ -44,9 +44,13 @@ from .i18n import _
 from .transaction import Transaction, multisig_script, TxOutput
 from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 from .synchronizer import Notifier
-from .wallet import Abstract_Wallet, create_new_wallet, restore_wallet_from_text
-from .address_synchronizer import TX_HEIGHT_LOCAL
 from .verifier import SPV
+
+try:
+    from .wallet import Abstract_Wallet, create_new_wallet, restore_wallet_from_text
+    from .address_synchronizer import TX_HEIGHT_LOCAL
+except ImportError:
+    pass
 
 if TYPE_CHECKING:
     from .network import Network
