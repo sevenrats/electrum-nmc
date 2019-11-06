@@ -526,18 +526,18 @@ class Commands:
         message = util.to_bytes(message)
         return ecc.verify_message_with_address(address, sig, message)
 
-    def _mktx(self, outputs, fee, change_addr, domain, nocheck, unsigned, rbf, password, locktime=None, name_input_txids=[], name_input_identifiers=[], name_outputs=[]):
+    def _mktx(self, outputs, fee, change_addr, domain_addr, domain_coins, nocheck, unsigned, rbf, password, locktime=None, name_input_txids=[], name_input_identifiers=[], name_outputs=[]):
         self.nocheck = nocheck
         change_addr = self._resolver(change_addr)
 
-        # The domain map will (for unknown reasons) delete its contents when
+        # The domain_addr map will (for unknown reasons) delete its contents when
         # read.  Since we want to use it multiple times for Namecoin, the most
         # obvious workaround is to simply make copies of it before we cast it
         # into a map.
-        name_txid_domain = copy.deepcopy(domain)
-        name_identifier_domain = copy.deepcopy(domain)
+        name_txid_domain = copy.deepcopy(domain_addr)
+        name_identifier_domain = copy.deepcopy(domain_addr)
 
-        domain = None if domain is None else map(self._resolver, domain)
+        domain_addr = None if domain_addr is None else map(self._resolver, domain_addr)
         name_txid_domain = None if name_txid_domain is None else map(self._resolver, name_txid_domain)
         name_identifier_domain = None if name_identifier_domain is None else map(self._resolver, name_identifier_domain)
         final_outputs = []
@@ -552,7 +552,9 @@ class Commands:
             amount = satoshis(amount)
             final_outputs.append(TxOutput(TYPE_ADDRESS, address, amount))
 
-        coins = self.wallet.get_spendable_coins(domain, self.config)
+        coins = self.wallet.get_spendable_coins(domain_addr, self.config)
+        if domain_coins is not None:
+            coins = list([coin for coin in coins if (coin['prevout_hash'] + ':' + str(coin['prevout_n']) in domain_coins)])
         name_coins = self.wallet.get_spendable_coins(name_txid_domain, self.config, include_names=True, only_uno_txids=name_input_txids)
         name_coins += self.wallet.get_spendable_coins(name_identifier_domain, self.config, include_names=True, only_uno_identifiers=name_input_identifiers)
         tx = self.wallet.make_unsigned_transaction(coins, final_outputs, self.config, fee, change_addr, name_inputs=name_coins)
@@ -567,19 +569,21 @@ class Commands:
         return tx
 
     @command('wp')
-    def payto(self, destination, amount, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None):
+    def payto(self, destination, amount, fee=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None):
         """Create a transaction. """
         tx_fee = satoshis(fee)
-        domain = from_addr.split(',') if from_addr else None
-        tx = self._mktx([(destination, amount)], tx_fee, change_addr, domain, nocheck, unsigned, rbf, password, locktime)
+        domain_addr = from_addr.split(',') if from_addr else None
+        domain_coins = from_coins.split(',') if from_coins else None
+        tx = self._mktx([(destination, amount)], tx_fee, change_addr, domain_addr, domain_coins, nocheck, unsigned, rbf, password, locktime)
         return tx.as_dict()
 
     @command('wp')
-    def paytomany(self, outputs, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None):
+    def paytomany(self, outputs, fee=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None):
         """Create a multi-output transaction. """
         tx_fee = satoshis(fee)
-        domain = from_addr.split(',') if from_addr else None
-        tx = self._mktx(outputs, tx_fee, change_addr, domain, nocheck, unsigned, rbf, password, locktime)
+        domain_addr = from_addr.split(',') if from_addr else None
+        domain_coins = from_coins.split(',') if from_coins else None
+        tx = self._mktx(outputs, tx_fee, change_addr, domain_addr, domain_coins, nocheck, unsigned, rbf, password, locktime)
         return tx.as_dict()
 
     @command('wp')
@@ -1206,6 +1210,7 @@ command_options = {
     'imax':        (None, "Maximum number of inputs"),
     'fee':         ("-f", "Transaction fee (in NMC)"),
     'from_addr':   ("-F", "Source address (must be a wallet address; use sweep to spend from non-wallet address)."),
+    'from_coins':  (None, "Source coins (must be in wallet; use sweep to spend from non-wallet address)."),
     'change_addr': ("-c", "Change address. Default is a spare address, or the source address if it's not in the wallet"),
     'nbits':       (None, "Number of bits of entropy"),
     'segwit':      (None, "Create segwit seed"),
