@@ -730,8 +730,6 @@ class Commands:
         new_rand = new_result["rand"]
         new_tx = new_result["tx"]["hex"]
 
-        self.broadcast(new_tx, stream_id=stream_id)
-
         # We add the name_new transaction to the wallet explicitly because
         # otherwise, the wallet will only learn about the name_new once the
         # ElectrumX server sends us a copy of the transaction, which is several
@@ -746,23 +744,28 @@ class Commands:
                 new_addr = o.address
                 break
 
-        firstupdate_result = self.name_firstupdate(identifier,
-                                                   new_rand,
-                                                   new_txid,
-                                                   value,
-                                                   destination=destination,
-                                                   amount=amount,
-                                                   fee=fee,
-                                                   from_addr=new_addr,
-                                                   change_addr=change_addr,
-                                                   nocheck=nocheck,
-                                                   rbf=rbf,
-                                                   password=password,
-                                                   locktime=locktime,
-                                                   allow_early=True)
-        firstupdate_tx = firstupdate_result["hex"]
+        try:
+            firstupdate_result = self.name_firstupdate(identifier,
+                                                       new_rand,
+                                                       new_txid,
+                                                       value,
+                                                       destination=destination,
+                                                       amount=amount,
+                                                       fee=fee,
+                                                       from_addr=new_addr,
+                                                       change_addr=change_addr,
+                                                       nocheck=nocheck,
+                                                       rbf=rbf,
+                                                       password=password,
+                                                       locktime=locktime,
+                                                       allow_early=True)
+            firstupdate_tx = firstupdate_result["hex"]
+            self.queuetransaction(firstupdate_tx, 12, trigger_txid=new_txid)
+        except Exception as e:
+            self.removelocaltx(new_txid)
+            raise e
 
-        self.queuetransaction(firstupdate_tx, 12, trigger_txid=new_txid)
+        self.broadcast(new_tx, stream_id=stream_id)
 
     @command('w')
     def history(self, year=None, show_addresses=False, show_fiat=False, show_fees=False,
