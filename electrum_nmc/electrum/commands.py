@@ -587,7 +587,7 @@ class Commands:
         return tx.as_dict()
 
     @command('wp')
-    def name_new(self, identifier, destination=None, amount=0.0, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None):
+    def name_new(self, identifier, destination=None, amount=0.0, fee=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None):
         """Create a name_new transaction. """
         if not allow_existing:
             name_exists = True
@@ -599,7 +599,8 @@ class Commands:
                 raise NameAlreadyExistsError("The name is already registered")
 
         tx_fee = satoshis(fee)
-        domain = from_addr.split(',') if from_addr else None
+        domain_addr = from_addr.split(',') if from_addr else None
+        domain_coins = from_coins.split(',') if from_coins else None
 
         # TODO: support non-ASCII encodings
         # TODO: enforce length limit on identifier
@@ -610,7 +611,8 @@ class Commands:
         tx = self._mktx([],
                         fee=tx_fee,
                         change_addr=change_addr,
-                        domain_addr=domain,
+                        domain_addr=domain_addr,
+                        domain_coins=domain_coins,
                         nocheck=nocheck,
                         unsigned=unsigned,
                         rbf=rbf,
@@ -620,7 +622,7 @@ class Commands:
         return {"tx": tx.as_dict(), "txid": tx.txid(), "rand": bh2u(rand)}
 
     @command('wp')
-    def name_firstupdate(self, identifier, rand, name_new_txid, value, destination=None, amount=0.0, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_early=False):
+    def name_firstupdate(self, identifier, rand, name_new_txid, value, destination=None, amount=0.0, fee=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_early=False):
         """Create a name_firstupdate transaction. """
         if not allow_early:
             conf = self.wallet.get_tx_height(name_new_txid).conf
@@ -629,7 +631,8 @@ class Commands:
                 raise NamePreRegistrationPendingError("The name pre-registration is still pending; wait " + str(remaining_conf) + "more blocks")
 
         tx_fee = satoshis(fee)
-        domain = from_addr.split(',') if from_addr else None
+        domain_addr = from_addr.split(',') if from_addr else None
+        domain_coins = from_coins.split(',') if from_coins else None
 
         # TODO: support non-ASCII encodings
         # TODO: enforce length limits on identifier and value
@@ -643,7 +646,8 @@ class Commands:
         tx = self._mktx([],
                         fee=tx_fee,
                         change_addr=change_addr,
-                        domain_addr=domain,
+                        domain_addr=domain_addr,
+                        domain_coins=domain_coins,
                         nocheck=nocheck,
                         unsigned=unsigned,
                         rbf=rbf,
@@ -654,11 +658,12 @@ class Commands:
         return tx.as_dict()
 
     @command('wpn')
-    def name_update(self, identifier, value=None, destination=None, amount=0.0, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None):
+    def name_update(self, identifier, value=None, destination=None, amount=0.0, fee=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None):
         """Create a name_update transaction. """
 
         tx_fee = satoshis(fee)
-        domain = from_addr.split(',') if from_addr else None
+        domain_addr = from_addr.split(',') if from_addr else None
+        domain_coins = from_coins.split(',') if from_coins else None
 
         # Allow renewing a name without any value changes by omitting the
         # value.
@@ -688,7 +693,8 @@ class Commands:
         tx = self._mktx([],
                         fee=tx_fee,
                         change_addr=change_addr,
-                        domain_addr=domain,
+                        domain_addr=domain_addr,
+                        domain_coins=domain_coins,
                         nocheck=nocheck,
                         unsigned=unsigned,
                         rbf=rbf,
@@ -699,7 +705,7 @@ class Commands:
         return tx.as_dict()
 
     @command('wpn')
-    def name_autoregister(self, identifier, value, destination=None, amount=0.0, fee=None, from_addr=None, change_addr=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None):
+    def name_autoregister(self, identifier, value, destination=None, amount=0.0, fee=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None):
         """Creates a name_new transaction, broadcasts it, creates a corresponding name_firstupdate transaction, and queues it. """
 
         # Validate the value before we try to pre-register the name.  That way,
@@ -712,6 +718,7 @@ class Commands:
                                    amount=amount+0.005,
                                    fee=fee,
                                    from_addr=from_addr,
+                                   from_coins=from_coins,
                                    change_addr=change_addr,
                                    nocheck=nocheck,
                                    rbf=rbf,
