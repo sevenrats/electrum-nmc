@@ -83,6 +83,9 @@ class BitcoinMainnet(AbstractNet):
     XPUB_HEADERS_INV = inv_dict(XPUB_HEADERS)
     BIP44_COIN_TYPE = 7
 
+    AUXPOW_CHAIN_ID = 0x0001
+    AUXPOW_START_HEIGHT = 19200
+
 
 class BitcoinTestnet(AbstractNet):
 
@@ -113,6 +116,9 @@ class BitcoinTestnet(AbstractNet):
     }
     XPUB_HEADERS_INV = inv_dict(XPUB_HEADERS)
     BIP44_COIN_TYPE = 1
+
+    AUXPOW_CHAIN_ID = 0x0001
+    AUXPOW_START_HEIGHT = 0
 
 
 class BitcoinRegtest(BitcoinTestnet):

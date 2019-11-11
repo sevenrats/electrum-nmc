@@ -63,7 +63,7 @@ class Test_auxpow(SequentialTestCase):
         header = self.deserialize_with_auxpow(namecoin_header_37174)
         header_auxpow = header['auxpow']
 
-        self.assertEqual(auxpow.CHAIN_ID, header_auxpow['chain_id'])
+        self.assertEqual(constants.net.AUXPOW_CHAIN_ID, header_auxpow['chain_id'])
 
         coinbase_tx = header_auxpow['parent_coinbase_tx']
         expected_coinbase_txid = '8a3164be45a621f85318647d425fe9f45837b8e42ec4fdd902d7f64daf61ff4a'

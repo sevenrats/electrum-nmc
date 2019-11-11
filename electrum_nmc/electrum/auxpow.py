@@ -47,6 +47,7 @@ import binascii
 
 from . import blockchain
 from .bitcoin import hash_encode, hash_decode
+from . import constants
 from .crypto import sha256d
 from . import transaction
 from .transaction import BCDataStream, Transaction, TYPE_SCRIPT
@@ -60,10 +61,6 @@ MAX_INDEX_PC_BACKWARDS_COMPATIBILITY = 20
 COINBASE_MERGED_MINING_HEADER = bfh('fabe') + b'mm'
 
 BLOCK_VERSION_AUXPOW_BIT = 0x100
-MIN_AUXPOW_HEIGHT = 19200
-
-# TODO: move this to network constants
-CHAIN_ID = 1
 
 class AuxPowVerifyError(Exception):
     pass
@@ -90,7 +87,7 @@ class AuxPoWCoinbaseRootMissingError(AuxPowVerifyError):
     pass
 
 def auxpow_active(base_header):
-    height_allows_auxpow = base_header['block_height'] >= MIN_AUXPOW_HEIGHT
+    height_allows_auxpow = base_header['block_height'] >= constants.net.AUXPOW_START_HEIGHT
     version_allows_auxpow = base_header['version'] & BLOCK_VERSION_AUXPOW_BIT
 
     return height_allows_auxpow and version_allows_auxpow
@@ -210,7 +207,7 @@ def verify_auxpow(header):
     #if (get_chain_id(parent_block) == chain_id)
     #  return error("Aux POW parent has our chain ID");
 
-    if (get_chain_id(parent_block) == CHAIN_ID):
+    if (get_chain_id(parent_block) == constants.net.AUXPOW_CHAIN_ID):
         raise AuxPoWOwnChainIDError()
 
     #if (vChainMerkleBranch.size() > 30)
@@ -351,7 +348,7 @@ def verify_auxpow(header):
     #if (nChainIndex != (rand % nSize))
         #return error("Aux POW wrong index");
 
-    index = calc_merkle_index(CHAIN_ID, nonce, size)
+    index = calc_merkle_index(constants.net.AUXPOW_CHAIN_ID, nonce, size)
     #print 'index', index
 
     if (chain_index != index):
