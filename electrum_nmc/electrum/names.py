@@ -146,18 +146,70 @@ def name_identifier_to_scripthash(identifier_bytes):
     return script_to_scripthash(script)
 
 
+def identifier_to_namespace(identifier_bytes):
+    try:
+        identifier = identifier_bytes.decode("ascii")
+    except UnicodeDecodeError:
+        return None
+
+    try:
+        namespace, label = identifier.split("/", 1)
+    except ValueError:
+        return None
+
+    if namespace == "d":
+        if len(label) < 1:
+            return None
+
+        # Source: https://github.com/namecoin/proposals/blob/master/ifa-0001.md#keys
+        if len(label) > 63:
+            return None
+
+        # Source: https://github.com/namecoin/proposals/blob/master/ifa-0001.md#keys
+        label_regex = r"^(xn--)?[a-z0-9]+(-[a-z0-9]+)*$"
+        label_match = re.match(label_regex, label)
+        if label_match is None:
+            return None
+
+        # Reject digits-only labels
+        number_regex = r"^[0-9]+$"
+        number_match = re.match(number_regex, label)
+        if number_match is not None:
+            return None
+
+        return namespace
+
+    if namespace == "id":
+        if len(label) < 1:
+            return None
+
+        # Max id/ identifier length is 255 chars according to wiki spec.  But we
+        # don't need to check for this, because that's also the max length of an
+        # identifier under the Namecoin consensus rules.
+
+        # Same as d/ regex but without IDN prefix.
+        # TODO: this doesn't exactly match the https://wiki.namecoin.org spec.
+        label_regex = r"^[a-z0-9]+(-[a-z0-9]+)*$"
+        label_match = re.match(label_regex, label)
+        if label_match is None:
+            return None
+
+        return namespace
+
+    return namespace
+
 def format_name_identifier(identifier_bytes):
     try:
         identifier = identifier_bytes.decode("ascii")
     except UnicodeDecodeError:
         return format_name_identifier_unknown_hex(identifier_bytes)
 
-    is_domain_namespace = identifier.startswith("d/")
-    if is_domain_namespace:
+    namespace = identifier_to_namespace(identifier_bytes)
+
+    if namespace == "d":
         return format_name_identifier_domain(identifier)
 
-    is_identity_namespace = identifier.startswith("id/")
-    if is_identity_namespace:
+    if namespace == "id":
         return format_name_identifier_identity(identifier)
 
     return format_name_identifier_unknown(identifier)
@@ -166,44 +218,11 @@ def format_name_identifier(identifier_bytes):
 def format_name_identifier_domain(identifier):
     label = identifier[len("d/"):]
 
-    if len(label) < 1:
-        return format_name_identifier_unknown(identifier)
-
-    # Source: https://github.com/namecoin/proposals/blob/master/ifa-0001.md#keys
-    if len(label) > 63:
-        return format_name_identifier_unknown(identifier)
-
-    # Source: https://github.com/namecoin/proposals/blob/master/ifa-0001.md#keys
-    label_regex = r"^(xn--)?[a-z0-9]+(-[a-z0-9]+)*$"
-    label_match = re.match(label_regex, label)
-    if label_match is None:
-        return format_name_identifier_unknown(identifier)
-
-    # Reject digits-only labels
-    number_regex = r"^[0-9]+$"
-    number_match = re.match(number_regex, label)
-    if number_match is not None:
-        return format_name_identifier_unknown(identifier)
-
     return "Domain " + label + ".bit"
 
 
 def format_name_identifier_identity(identifier):
     label = identifier[len("id/"):]
-
-    if len(label) < 1:
-        return format_name_identifier_unknown(identifier)
-
-    # Max id/ identifier length is 255 chars according to wiki spec.  But we
-    # don't need to check for this, because that's also the max length of an
-    # identifier under the Namecoin consensus rules.
-
-    # Same as d/ regex but without IDN prefix.
-    # TODO: this doesn't exactly match the https://wiki.namecoin.org spec.
-    label_regex = r"^[a-z0-9]+(-[a-z0-9]+)*$"
-    label_match = re.match(label_regex, label)
-    if label_match is None:
-        return format_name_identifier_unknown(identifier)
 
     return "Identity " + label
 
@@ -219,20 +238,20 @@ def format_name_identifier_unknown_hex(identifier_bytes):
     return "Non-standard hex name " + bh2u(identifier_bytes)
 
 
-def format_name_value(identifier_bytes):
+def format_name_value(value_bytes):
     try:
-        identifier = identifier_bytes.decode("ascii")
+        value = value_bytes.decode("ascii")
     except UnicodeDecodeError:
-        return format_name_value_hex(identifier_bytes)
+        return format_name_value_hex(value_bytes)
 
-    if not identifier.isprintable():
-        return format_name_value_hex(identifier_bytes)
+    if not value.isprintable():
+        return format_name_value_hex(value_bytes)
 
-    return "ASCII " + identifier
+    return "ASCII " + value
 
 
-def format_name_value_hex(identifier_bytes):
-    return "Hex " + bh2u(identifier_bytes)
+def format_name_value_hex(value_bytes):
+    return "Hex " + bh2u(value_bytes)
 
 
 def format_name_op(name_op):
