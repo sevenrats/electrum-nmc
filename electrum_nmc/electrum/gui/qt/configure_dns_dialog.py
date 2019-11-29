@@ -30,6 +30,8 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
+from electrum.names import get_domain_records
+
 from .forms.dnsdialog import Ui_DNSDialog
 
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
@@ -57,6 +59,12 @@ class ConfigureDNSDialog(QDialog):
             self.base_domain = "(...).bit"
         else:
             raise Exception("Identifier '" + identifier + "' is not d/ or dd/")
-        subdomains = [self.base_domain]
-        self.ui.comboDomain.addItems(subdomains)
+
+        subdomains = set([self.base_domain])
+
+        records, self.extra_records = get_domain_records(self.base_domain, value)
+
+        subdomains.update([record[0] for record in records])
+
+        self.ui.comboDomain.addItems(list(subdomains))
 
