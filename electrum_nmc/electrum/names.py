@@ -470,6 +470,12 @@ def get_domain_records(domain, value):
         if value["txt"] == []:
             del value["txt"]
 
+    if "map" in value:
+        new_records, value["map"] = get_domain_records_map(domain, value["map"])
+        records.extend(new_records)
+        if value["map"] == {}:
+            del value["map"]
+
     return records, value
 
 def get_domain_records_address(domain, value):
@@ -613,6 +619,38 @@ def get_domain_records_txt_single(domain, value):
     # TODO: Handle TXT records that are an array.
 
     return [domain, "txt", value], None
+
+def get_domain_records_map(domain, value):
+    # Must be dict
+    if type(value) != dict:
+        return [], value
+
+    # Parse each dict item
+    records = []
+    remaining = {}
+    for subdomain in value:
+        # Special form where map key is empty
+        if subdomain == "":
+            # This special form is a security hazard and should be avoided.  We
+            # therefore don't parse it.  If you want to parse it, uncomment the
+            # next line, and comment out the "continue".
+            #single_domain = domain
+            continue
+        else:
+            single_domain = subdomain + "." + domain
+
+        # Special form where a map value is a string
+        single_value = value[subdomain]
+        if type(single_value) == str:
+            single_value = {"ip": single_value}
+
+        new_records, remaining[subdomain] = get_domain_records(single_domain, single_value)
+
+        records.extend(new_records)
+        if remaining[subdomain] == {}:
+            del remaining[subdomain]
+
+    return records, remaining
 
 
 import binascii
