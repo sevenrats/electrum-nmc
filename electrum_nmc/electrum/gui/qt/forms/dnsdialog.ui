@@ -1285,6 +1285,8 @@
     </layout>
    </item>
    <item>
+    <!-- TODO: Replace this with a QDialogButtonBox. -->
+    <!-- TODO: Ask upstream Electrum to switch to QDialogButtonBox. -->
     <layout class="QHBoxLayout" name="horizontalLayout_Buttons">
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_4">
