@@ -50,3 +50,13 @@ class ConfigureDNSDialog(QDialog):
         self.ui = Ui_DNSDialog()
         self.ui.setupUi(self)
 
+        identifier = self.name_dialog.identifier.decode('ascii')
+        if self.name_dialog.namespace == "d":
+            self.base_domain = identifier[len("d/"):] + ".bit"
+        elif self.name_dialog.namespace == "dd":
+            self.base_domain = "(...).bit"
+        else:
+            raise Exception("Identifier '" + identifier + "' is not d/ or dd/")
+        subdomains = [self.base_domain]
+        self.ui.comboDomain.addItems(subdomains)
+
