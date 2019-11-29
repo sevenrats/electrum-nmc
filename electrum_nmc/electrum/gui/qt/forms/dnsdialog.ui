@@ -1221,7 +1221,8 @@
       </widget>
      </item>
      <item>
-      <widget class="QListWidget" name="listDNSRecords">
+      <!-- TODO: Reconcile this with Namecoin Core's version, which uses QListWidget -->
+      <widget class="QTableView" name="listDNSRecords">
        <property name="minimumSize">
         <size>
          <width>0</width>
