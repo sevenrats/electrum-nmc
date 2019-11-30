@@ -1285,9 +1285,17 @@
     </layout>
    </item>
    <item>
-    <!-- TODO: Replace this with a QDialogButtonBox. -->
+    <!-- TODO: Reconcile this with Namecoin Core's version (commented out below) -->
     <!-- TODO: Ask upstream Electrum to switch to QDialogButtonBox. -->
-    <layout class="QHBoxLayout" name="horizontalLayout_Buttons">
+    <widget class="QDialogButtonBox" name="dialogButtons">
+     <property name="centerButtons">
+      <bool>true</bool>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+    <!--<layout class="QHBoxLayout" name="horizontalLayout_Buttons">
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
@@ -1319,7 +1327,7 @@
        </item>
       </layout>
      </item>
-    </layout>
+    </layout>-->
    </item>
   </layout>
  </widget>
