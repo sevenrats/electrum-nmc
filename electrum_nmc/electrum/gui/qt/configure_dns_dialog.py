@@ -96,6 +96,8 @@ class ConfigureDNSDialog(QDialog):
         self.ui.dialogButtons.accepted.connect(self.accept)
         self.ui.dialogButtons.rejected.connect(self.reject)
 
+        self.accepted.connect(lambda: self.name_dialog.set_value(self.get_value()))
+
     def insert_record(self, idx, record):
         domain, record_type, data = record
 
