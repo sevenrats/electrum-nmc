@@ -128,6 +128,23 @@ class ConfigureDNSDialog(QDialog):
 
         self.ui.listDNSRecords.model().insertRow(idx, record_item)
 
+    def get_records(self):
+        model = self.ui.listDNSRecords.model()
+
+        records = []
+
+        # Iterate through all rows in the table
+        for row in range(model.rowCount()):
+            # Get the indexes for each cell in the row
+            row_indexes = [model.index(row, column) for column in range(model.columnCount())]
+
+            # Extract the data from each cell in the row
+            single_record = list([model.data(index, Qt.UserRole) for index in row_indexes])
+
+            records.append(single_record)
+
+        return records
+
     def update_headers(self, headers: Union[List[str], Dict[int, str]]):
         # headers is either a list of column names, or a dict: (col_idx->col_name)
         if not isinstance(headers, dict):  # convert to dict
