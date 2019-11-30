@@ -72,8 +72,7 @@ class ConfigureNameDialog(QDialog):
         form_layout.addRow(QLabel(formatted_name))
 
         self.dataEdit = QLineEdit()
-        # TODO: support non-ASCII encodings
-        self.dataEdit.setText(value.decode('ascii'))
+        self.set_value(value)
 
         self.namespace = identifier_to_namespace(identifier)
         self.namespace_is_dns = self.namespace in ["d", "dd"]
@@ -125,6 +124,10 @@ class ConfigureNameDialog(QDialog):
         else:
             # TODO: handle non-ASCII encodings
             self.accepted.connect(lambda: self.update_and_broadcast(self.identifier, self.dataEdit.text().encode('ascii'), self.transferTo))
+
+    def set_value(self, value):
+        # TODO: support non-ASCII encodings
+        self.dataEdit.setText(value.decode('ascii'))
 
     def register_and_broadcast(self, identifier, value, transfer_to):
         if transfer_to.toPlainText() == "":
