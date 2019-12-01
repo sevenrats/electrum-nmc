@@ -38,6 +38,7 @@ from electrum.i18n import _
 from electrum.names import add_domain_record, get_domain_records
 
 from .forms.dnsdialog import Ui_DNSDialog
+from .util import MessageBoxMixin
 
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 
@@ -54,7 +55,7 @@ def show_configure_dns(value, parent):
     dialogs.append(d)
     d.show()
 
-class ConfigureDNSDialog(QDialog):
+class ConfigureDNSDialog(QDialog, MessageBoxMixin):
     class Columns(IntEnum):
         DOMAIN = 0
         TYPE = 1
@@ -126,8 +127,15 @@ class ConfigureDNSDialog(QDialog):
             "IPv6": "ip6",
             "Tor": "tor",
             "I2P": "i2p",
+            "Freenet": "freenet",
         }
+
         address_type = address_type_dict[self.ui.comboHostType.currentText()]
+
+        if address_type == "freenet" and self.has_freenet_record(domain):
+            self.show_error(domain + _(" already has a Freenet record."))
+            return
+
         address = self.ui.editAHostname.text()
 
         record = [domain, "address", [address_type, address]]
@@ -145,6 +153,15 @@ class ConfigureDNSDialog(QDialog):
 
         self.insert_record(idx, record)
 
+    def has_freenet_record(self, domain):
+        for record in self.get_records():
+            record_domain, record_type, data = record
+
+            if record_domain == domain and record_type == "address" and data[0] == "freenet":
+                return True
+
+        return False
+
     def insert_record(self, idx, record):
         domain, record_type, data = record
 
@@ -160,6 +177,8 @@ class ConfigureDNSDialog(QDialog):
                 formatted_data = "Tor: " + data[1]
             elif data[0] == "i2p":
                 formatted_data = "I2P: " + data[1]
+            elif data[0] == "freenet":
+                formatted_data = "Freenet: " + data[1]
             else:
                 raise Exception("Unknown address type")
         elif record_type == "txt":

@@ -505,6 +505,12 @@ def get_domain_records_address(domain, value):
         if value["i2p"] == []:
             del value["i2p"]
 
+    if "freenet" in value:
+        new_records, value["freenet"] = get_domain_records_address_freenet(domain, value["freenet"])
+        records.extend(new_records)
+        if value["freenet"] == None:
+            del value["freenet"]
+
     return records, value
 
 def get_domain_records_address_ip4(domain, value):
@@ -618,6 +624,18 @@ def get_domain_records_address_i2p_single(domain, value):
         return None, value
 
     return [domain, "address", ["i2p", value]], None
+
+def get_domain_records_address_freenet(domain, value):
+    records = []
+    remaining = None
+
+    # Must be string
+    if type(value) != str:
+        return [], value
+
+    records.append([domain, "address", ["freenet", value]])
+
+    return records, remaining
 
 def get_domain_records_txt(domain, value):
     # Process Tor specially
@@ -739,6 +757,8 @@ def add_domain_record_address(value, data):
         add_domain_record_address_ip6(value, address_data)
     elif address_type == "i2p":
         add_domain_record_address_i2p(value, address_data)
+    elif address_type == "freenet":
+        add_domain_record_address_freenet(value, address_data)
     else:
         raise Exception("Unknown address type")
 
@@ -765,6 +785,14 @@ def add_domain_record_address_i2p(value, data):
 
     # Add the record
     value["i2p"].append(data)
+
+def add_domain_record_address_freenet(value, data):
+    # Make sure the field doesn't already exist
+    if "freenet" in value:
+        raise Exception("Multiple Freenet records for one domain")
+
+    # Add the record
+    value["freenet"] = data
 
 def add_domain_record_txt(value, data):
     # Make sure the field exists
