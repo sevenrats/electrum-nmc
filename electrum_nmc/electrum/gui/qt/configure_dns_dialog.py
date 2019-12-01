@@ -90,6 +90,11 @@ class ConfigureDNSDialog(QDialog):
 
         self.ui.listDNSRecords.model().clear()
         self.update_headers(self.__class__.headers)
+
+        # Update byte usage at least once in case there aren't any records to
+        # add.
+        self.update_byte_usage()
+
         for idx, record in enumerate(records):
             self.insert_record(idx, record)
 
@@ -131,6 +136,8 @@ class ConfigureDNSDialog(QDialog):
 
         self.ui.listDNSRecords.model().insertRow(idx, record_item)
 
+        self.update_byte_usage()
+
     def get_records(self):
         model = self.ui.listDNSRecords.model()
 
@@ -166,4 +173,12 @@ class ConfigureDNSDialog(QDialog):
         col_names = [headers[col_idx] for col_idx in sorted(headers.keys())]
         model = self.ui.listDNSRecords.model()
         model.setHorizontalHeaderLabels(col_names)
+
+    def update_byte_usage(self):
+        value = self.get_value()
+        usage = len(value)
+        usage_text = str(usage)
+
+        label = self.ui.labelBytes
+        label.setText(usage_text)
 
