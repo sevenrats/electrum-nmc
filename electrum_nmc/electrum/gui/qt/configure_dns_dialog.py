@@ -23,13 +23,17 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from enum import IntEnum
+import json
 import sys
 import traceback
+from typing import Union, List, Dict
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
+from electrum.i18n import _
 from electrum.names import get_domain_records
 
 from .forms.dnsdialog import Ui_DNSDialog
@@ -43,6 +47,17 @@ def show_configure_dns(value, parent):
     d.show()
 
 class ConfigureDNSDialog(QDialog):
+    class Columns(IntEnum):
+        DOMAIN = 0
+        TYPE = 1
+        DATA = 2
+
+    headers = {
+        Columns.DOMAIN: _('Domain'),
+        Columns.TYPE: _('Type'),
+        Columns.DATA: _('Data'),
+    }
+
     def __init__(self, value, parent):
         # We want to be a top-level window
         QDialog.__init__(self, parent=None)
@@ -67,4 +82,54 @@ class ConfigureDNSDialog(QDialog):
         subdomains.update([record[0] for record in records])
 
         self.ui.comboDomain.addItems(list(subdomains))
+
+        self.ui.listDNSRecords.setModel(QStandardItemModel(self))
+        self.ui.listDNSRecords.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.ui.listDNSRecords.setSortingEnabled(True)
+
+        self.ui.listDNSRecords.model().clear()
+        self.update_headers(self.__class__.headers)
+        for idx, record in enumerate(records):
+            self.insert_record(idx, record)
+
+    def insert_record(self, idx, record):
+        domain, record_type, data = record
+
+        formatted_domain = domain
+
+        if record_type == "address":
+            formatted_record_type = "Address"
+            if data[0] == "ip4":
+                formatted_data = "IPv4: " + data[1]
+            elif data[0] == "ip6":
+                formatted_data = "IPv6: " + data[1]
+            elif data[0] == "tor":
+                formatted_data = "Tor: " + data[1]
+            else:
+                raise Exception("Unknown address type")
+        elif record_type == "txt":
+            formatted_record_type = "TXT"
+            formatted_data = json.dumps(data)
+        else:
+            raise Exception("Unknown record type")
+
+        labels = [formatted_domain, formatted_record_type, formatted_data]
+        record_item = [QStandardItem(x) for x in labels]
+
+        record_item[self.Columns.DOMAIN].setData(domain, Qt.UserRole)
+        record_item[self.Columns.TYPE].setData(record_type, Qt.UserRole)
+        record_item[self.Columns.DATA].setData(data, Qt.UserRole)
+
+        for cell in record_item:
+            cell.setEditable(False)
+
+        self.ui.listDNSRecords.model().insertRow(idx, record_item)
+
+    def update_headers(self, headers: Union[List[str], Dict[int, str]]):
+        # headers is either a list of column names, or a dict: (col_idx->col_name)
+        if not isinstance(headers, dict):  # convert to dict
+            headers = dict(enumerate(headers))
+        col_names = [headers[col_idx] for col_idx in sorted(headers.keys())]
+        model = self.ui.listDNSRecords.model()
+        model.setHorizontalHeaderLabels(col_names)
 
