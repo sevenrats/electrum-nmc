@@ -612,7 +612,7 @@
        <item>
         <widget class="QLabel" name="labelTLSDesc">
          <property name="text">
-          <string>A TLS record provides a domain with a way to authenticate TLS client and server entities without a certificate authority.</string>
+          <string>A TLS record authenticates TLS servers without a public certificate authority.  For compatibility with ncp11 (e.g. Tor Browser), leave all settings other than Certificate Association Data at their default.</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -641,6 +641,9 @@
              <property name="placeholderText">
               <string>e.g., tcp</string>
              </property>
+             <property name="text">
+              <string>tcp</string>
+             </property>
             </widget>
            </item>
           </layout>
@@ -665,6 +668,9 @@
              <property name="placeholderText">
               <string>e.g., 443</string>
              </property>
+             <property name="text">
+              <string>443</string>
+             </property>
             </widget>
            </item>
           </layout>
@@ -687,7 +693,10 @@
            <item>
             <widget class="QValidatedLineEdit" name="editTLSCertUsage">
              <property name="placeholderText">
-              <string>e.g., 0</string>
+              <string>e.g., 2</string>
+             </property>
+             <property name="text">
+              <string>2</string>
              </property>
             </widget>
            </item>
@@ -711,7 +720,10 @@
            <item>
             <widget class="QValidatedLineEdit" name="editTLSSelector">
              <property name="placeholderText">
-              <string>e.g., 0</string>
+              <string>e.g., 1</string>
+             </property>
+             <property name="text">
+              <string>1</string>
              </property>
             </widget>
            </item>
@@ -735,7 +747,10 @@
            <item>
             <widget class="QValidatedLineEdit" name="editTLSMatchingType">
              <property name="placeholderText">
-              <string>e.g., 1</string>
+              <string>e.g., 0</string>
+             </property>
+             <property name="text">
+              <string>0</string>
              </property>
             </widget>
            </item>
@@ -746,14 +761,14 @@
        <item>
         <widget class="QLabel" name="label_24">
          <property name="text">
-          <string>Certificate Association Data</string>
+          <string>Certificate Association Data (Base64)</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPlainTextEdit" name="editTLSData">
          <property name="placeholderText">
-          <string>e.g., d2abde240d7cd3ee6b4b28c54df034b97983a1d16e8a410e4561cb106618e971</string>
+          <string>e.g., MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEURoQKhqi6Sghol6CAPyw/YgO4tK1IrAkWe/QT1VouB9toJSBmR7BxmsIPS+OAaFwaLNhyV5K4cAED8HZTaYwWQ==</string>
          </property>
         </widget>
        </item>
