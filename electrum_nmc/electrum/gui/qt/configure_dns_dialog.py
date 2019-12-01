@@ -110,6 +110,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.btnCNAMECreate.clicked.connect(self.create_cname_record)
         self.ui.btnNSCreate.clicked.connect(self.create_ns_record)
         self.ui.btnDSCreate.clicked.connect(self.create_ds_record)
+        self.ui.btnTLSCreate.clicked.connect(self.create_tls_record)
         self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
 
         self.ui.dialogButtons.accepted.connect(self.accept)
@@ -197,6 +198,35 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.insert_record(idx, record)
 
+    def create_tls_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        try:
+            tls = [
+                int(self.ui.editTLSCertUsage.text()),
+                int(self.ui.editTLSSelector.text()),
+                int(self.ui.editTLSMatchingType.text()),
+                self.ui.editTLSData.toPlainText(),
+            ]
+        except ValueError:
+            self.show_error(_("The Cert Usage, Selector, and Matching Type must be integers."))
+            return
+        try:
+            data = [
+                self.ui.editTLSProto.text(),
+                int(self.ui.editTLSPort.text()),
+                tls,
+            ]
+        except ValueError:
+            self.show_error(_("The Port must be an integer."))
+            return
+
+        record = [domain, "tls", data]
+
+        self.insert_record(idx, record)
+
     def create_txt_record(self):
         model = self.ui.listDNSRecords.model()
         idx = model.rowCount()
@@ -264,6 +294,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             formatted_data = data
         elif record_type == "ds":
             formatted_record_type = "DS"
+            formatted_data = json.dumps(data)
+        elif record_type == "tls":
+            formatted_record_type = "TLS"
             formatted_data = json.dumps(data)
         elif record_type == "txt":
             formatted_record_type = "TXT"

@@ -482,6 +482,12 @@ def get_domain_records(domain, value):
         if value["ds"] == []:
             del value["ds"]
 
+    if "tls" in value:
+        new_records, value["tls"] = get_domain_records_tls(domain, value["tls"])
+        records.extend(new_records)
+        if value["tls"] == []:
+            del value["tls"]
+
     if "txt" in value:
         new_records, value["txt"] = get_domain_records_txt(domain, value["txt"])
         records.extend(new_records)
@@ -758,6 +764,77 @@ def get_domain_records_ds_single(domain, value):
 
     return [domain, "ds", value], None
 
+def get_domain_records_tls(domain, value):
+    # Handle TLS subdomain
+    try:
+        port, protocol, domain = domain.split(".", 2)
+        port = port[1:]
+        protocol = protocol[1:]
+    except IndexError:
+        return [], value
+
+    # Must be array
+    if type(value) != list:
+        return [], value
+
+    # Parse each array item
+    records = []
+    remaining = []
+    for raw_address in value:
+        single_record, single_remaining = get_domain_records_tls_single(domain, raw_address, protocol, port)
+        if single_record is not None:
+            records.append(single_record)
+        if single_remaining is not None:
+            remaining.append(single_remaining)
+
+    return records, remaining
+
+def get_domain_records_tls_single(domain, value, protocol, port):
+    # Port must be an integer
+    try:
+        port = int(port)
+    except ValueError:
+        return None, value
+
+    # Convert array to dict (default DANE format)
+    if type(value) == list:
+        value = {"dane": value}
+
+    # Must be dict
+    if type(value) != dict:
+        return None, value
+
+    # Technically a TLS object can have both Dehydrated and DANE versions at once.
+    # This is unusual and we don't try to handle this.
+    if len(value) != 1:
+        return None, value
+
+    # Check format
+    if "dane" in value:
+        cert = value["dane"]
+        if type(cert) != list:
+            return None, value
+        if len(cert) != 4:
+            return None, value
+        if type(cert[0]) != int or type(cert[1]) != int or type(cert[2]) != int or type(cert[3]) != str:
+            return None, value
+    # TODO: enable Dehydrated format by uncommenting the below code.  We need
+    # to finish the GUI first.
+    #elif "d8" in value:
+    #    cert = value["d8"]
+    #    if type(cert) != list:
+    #        return None, value
+    #    if len(cert) != 6:
+    #        return None, value
+    #    if cert[0] != 1:
+    #        return None, value
+    #    if type(cert[1]) != str or type(cert[2]) != int or type(cert[3]) != int or type(cert[4]) != int or type(cert[5]) != str:
+    #        return None, value
+    else:
+        return None, value
+
+    return [domain, "tls", [protocol, port, value]], None
+
 def get_domain_records_txt(domain, value):
     # Process Tor specially
     if domain.startswith("_tor."):
@@ -834,6 +911,11 @@ def add_domain_record(base_domain, value, record):
         record_type = "txt"
         data = data[1]
 
+    # Handle TLS record specially to prepend protocol/port subdomain
+    if record_type == "tls":
+        protocol, port, data = data
+        domain = "_" + str(port) + "._" + protocol + "." + domain
+
     if not domain.endswith(base_domain):
         raise Exception("Base domain mismatch")
 
@@ -858,6 +940,8 @@ def add_domain_record(base_domain, value, record):
         add_domain_record_ns(subdomain_value, data)
     elif record_type == "ds":
         add_domain_record_ds(subdomain_value, data)
+    elif record_type == "tls":
+        add_domain_record_tls(subdomain_value, data)
     elif record_type == "txt":
         add_domain_record_txt(subdomain_value, data)
 
@@ -954,6 +1038,18 @@ def add_domain_record_ds(value, data):
 
     # Add the record
     value["ds"].append(data)
+
+def add_domain_record_tls(value, data):
+    # Make sure the field exists
+    if "tls" not in value:
+        value["tls"] = []
+
+    # Minimize the DANE format
+    if "dane" in data:
+        data = data["dane"]
+
+    # Add the record
+    value["tls"].append(data)
 
 def add_domain_record_txt(value, data):
     # Make sure the field exists
