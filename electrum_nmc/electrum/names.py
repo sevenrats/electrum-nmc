@@ -500,6 +500,12 @@ def get_domain_records(domain, value):
         if value["txt"] == []:
             del value["txt"]
 
+    if "srv" in value:
+        new_records, value["srv"] = get_domain_records_srv(domain, value["srv"])
+        records.extend(new_records)
+        if value["srv"] == []:
+            del value["srv"]
+
     if "map" in value:
         new_records, value["map"] = get_domain_records_map(domain, value["map"])
         records.extend(new_records)
@@ -908,6 +914,38 @@ def get_domain_records_txt_single(domain, value):
 
     return [domain, "txt", value], None
 
+def get_domain_records_srv(domain, value):
+    # Must be array
+    if type(value) != list:
+        return [], value
+
+    # Parse each array item
+    records = []
+    remaining = []
+    for raw_address in value:
+        single_record, single_remaining = get_domain_records_srv_single(domain, raw_address)
+        if single_record is not None:
+            records.append(single_record)
+        if single_remaining is not None:
+            remaining.append(single_remaining)
+
+    return records, remaining
+
+def get_domain_records_srv_single(domain, value):
+    # Must be array
+    if type(value) != list:
+        return None, value
+
+    # Must be length 4
+    if len(value) != 4:
+        return None, value
+
+    # Check value types
+    if type(value[0]) != int or type(value[1]) != int or type(value[2]) != int or type(value[3]) != str:
+        return None, value
+
+    return [domain, "srv", value], None
+
 def get_domain_records_map(domain, value):
     # Must be dict
     if type(value) != dict:
@@ -984,6 +1022,8 @@ def add_domain_record(base_domain, value, record):
         add_domain_record_sshfp(subdomain_value, data)
     elif record_type == "txt":
         add_domain_record_txt(subdomain_value, data)
+    elif record_type == "srv":
+        add_domain_record_srv(subdomain_value, data)
 
 def add_domain_record_map(value, map_labels):
     if len(map_labels) == 0:
@@ -1106,6 +1146,14 @@ def add_domain_record_txt(value, data):
 
     # Add the record
     value["txt"].append(data)
+
+def add_domain_record_srv(value, data):
+    # Make sure the field exists
+    if "srv" not in value:
+        value["srv"] = []
+
+    # Add the record
+    value["srv"].append(data)
 
 
 import binascii

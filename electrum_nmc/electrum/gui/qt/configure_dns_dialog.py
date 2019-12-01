@@ -113,6 +113,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.btnTLSCreate.clicked.connect(self.create_tls_record)
         self.ui.btnSSHFPCreate.clicked.connect(self.create_sshfp_record)
         self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
+        self.ui.btnSRVCreate.clicked.connect(self.create_srv_record)
 
         self.ui.dialogButtons.accepted.connect(self.accept)
         self.ui.dialogButtons.rejected.connect(self.reject)
@@ -258,6 +259,26 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.insert_record(idx, record)
 
+    def create_srv_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        try:
+            data = [
+                int(self.ui.editSRVPriority.text()),
+                int(self.ui.editSRVWeight.text()),
+                int(self.ui.editSRVPort.text()),
+                self.ui.editSRVHost.text(),
+            ]
+        except ValueError:
+            self.show_error(_("The Priority, Weight, and Port must be integers."))
+            return
+
+        record = [domain, "srv", data]
+
+        self.insert_record(idx, record)
+
     def has_freenet_record(self, domain):
         for record in self.get_records():
             record_domain, record_type, data = record
@@ -323,6 +344,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             formatted_data = json.dumps(data)
         elif record_type == "txt":
             formatted_record_type = "TXT"
+            formatted_data = json.dumps(data)
+        elif record_type == "srv":
+            formatted_record_type = "SRV"
             formatted_data = json.dumps(data)
         else:
             raise Exception("Unknown record type")
