@@ -125,6 +125,7 @@ class ConfigureDNSDialog(QDialog):
             "IPv4": "ip4",
             "IPv6": "ip6",
             "Tor": "tor",
+            "I2P": "i2p",
         }
         address_type = address_type_dict[self.ui.comboHostType.currentText()]
         address = self.ui.editAHostname.text()
@@ -157,6 +158,8 @@ class ConfigureDNSDialog(QDialog):
                 formatted_data = "IPv6: " + data[1]
             elif data[0] == "tor":
                 formatted_data = "Tor: " + data[1]
+            elif data[0] == "i2p":
+                formatted_data = "I2P: " + data[1]
             else:
                 raise Exception("Unknown address type")
         elif record_type == "txt":

@@ -499,6 +499,12 @@ def get_domain_records_address(domain, value):
         if value["tor"] == []:
             del value["tor"]
 
+    if "i2p" in value:
+        new_records, value["i2p"] = get_domain_records_address_i2p(domain, value["i2p"])
+        records.extend(new_records)
+        if value["i2p"] == []:
+            del value["i2p"]
+
     return records, value
 
 def get_domain_records_address_ip4(domain, value):
@@ -584,6 +590,34 @@ def get_domain_records_address_tor_single(domain, value):
         return None, value
 
     return [domain, "address", ["tor", value]], None
+
+def get_domain_records_address_i2p(domain, value):
+    # Convert string to array (only 1 I2P record exists)
+    if type(value) == str:
+        value = [value]
+
+    # Must be array
+    if type(value) != list:
+        return [], value
+
+    # Parse each array item
+    records = []
+    remaining = []
+    for raw_address in value:
+        single_record, single_remaining = get_domain_records_address_i2p_single(domain, raw_address)
+        if single_record is not None:
+            records.append(single_record)
+        if single_remaining is not None:
+            remaining.append(single_remaining)
+
+    return records, remaining
+
+def get_domain_records_address_i2p_single(domain, value):
+    # Must be string
+    if type(value) != str:
+        return None, value
+
+    return [domain, "address", ["i2p", value]], None
 
 def get_domain_records_txt(domain, value):
     # Process Tor specially
@@ -703,6 +737,8 @@ def add_domain_record_address(value, data):
         add_domain_record_address_ip4(value, address_data)
     elif address_type == "ip6":
         add_domain_record_address_ip6(value, address_data)
+    elif address_type == "i2p":
+        add_domain_record_address_i2p(value, address_data)
     else:
         raise Exception("Unknown address type")
 
@@ -721,6 +757,14 @@ def add_domain_record_address_ip6(value, data):
 
     # Add the record
     value["ip6"].append(data)
+
+def add_domain_record_address_i2p(value, data):
+    # Make sure the field exists
+    if "i2p" not in value:
+        value["i2p"] = []
+
+    # Add the record
+    value["i2p"].append(data)
 
 def add_domain_record_txt(value, data):
     # Make sure the field exists
