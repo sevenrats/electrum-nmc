@@ -198,7 +198,8 @@
        </item>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_6">
-         <item>
+         <!-- TODO: Reconcile this with Namecoin Core, which includes a "Hostname" field. -->
+         <!--<item>
           <layout class="QVBoxLayout" name="verticalLayout_11">
            <item>
             <widget class="QLabel" name="labelCNAMEHost">
@@ -221,7 +222,7 @@
             </widget>
            </item>
           </layout>
-         </item>
+         </item>-->
          <item>
           <layout class="QVBoxLayout" name="verticalLayout_12">
            <item>
