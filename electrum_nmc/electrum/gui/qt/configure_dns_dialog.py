@@ -108,6 +108,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.ui.btnACreate.clicked.connect(self.create_address_record)
         self.ui.btnCNAMECreate.clicked.connect(self.create_cname_record)
+        self.ui.btnDSCreate.clicked.connect(self.create_ds_record)
         self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
 
         self.ui.dialogButtons.accepted.connect(self.accept)
@@ -161,6 +162,26 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         data = self.ui.editCNAMEAlias.text()
 
         record = [domain, "cname", data]
+
+        self.insert_record(idx, record)
+
+    def create_ds_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        try:
+            data = [
+                int(self.ui.editDSKeyTag.text()),
+                int(self.ui.editDSAlgorithm.text()),
+                int(self.ui.editDSHashType.text()),
+                self.ui.editDSHash.text(),
+            ]
+        except ValueError:
+            self.show_error(_("The Keytag, Algorithm, and Hashtype must be integers."))
+            return
+
+        record = [domain, "ds", data]
 
         self.insert_record(idx, record)
 
@@ -226,6 +247,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         elif record_type == "cname":
             formatted_record_type = "CNAME"
             formatted_data = data
+        elif record_type == "ds":
+            formatted_record_type = "DS"
+            formatted_data = json.dumps(data)
         elif record_type == "txt":
             formatted_record_type = "TXT"
             formatted_data = json.dumps(data)
