@@ -488,6 +488,12 @@ def get_domain_records(domain, value):
         if value["tls"] == []:
             del value["tls"]
 
+    if "sshfp" in value:
+        new_records, value["sshfp"] = get_domain_records_sshfp(domain, value["sshfp"])
+        records.extend(new_records)
+        if value["sshfp"] == []:
+            del value["sshfp"]
+
     if "txt" in value:
         new_records, value["txt"] = get_domain_records_txt(domain, value["txt"])
         records.extend(new_records)
@@ -835,6 +841,38 @@ def get_domain_records_tls_single(domain, value, protocol, port):
 
     return [domain, "tls", [protocol, port, value]], None
 
+def get_domain_records_sshfp(domain, value):
+    # Must be array
+    if type(value) != list:
+        return [], value
+
+    # Parse each array item
+    records = []
+    remaining = []
+    for raw_address in value:
+        single_record, single_remaining = get_domain_records_sshfp_single(domain, raw_address)
+        if single_record is not None:
+            records.append(single_record)
+        if single_remaining is not None:
+            remaining.append(single_remaining)
+
+    return records, remaining
+
+def get_domain_records_sshfp_single(domain, value):
+    # Must be array
+    if type(value) != list:
+        return None, value
+
+    # Must be length 3
+    if len(value) != 3:
+        return None, value
+
+    # Check value types
+    if type(value[0]) != int or type(value[1]) != int or type(value[2]) != str:
+        return None, value
+
+    return [domain, "sshfp", value], None
+
 def get_domain_records_txt(domain, value):
     # Process Tor specially
     if domain.startswith("_tor."):
@@ -942,6 +980,8 @@ def add_domain_record(base_domain, value, record):
         add_domain_record_ds(subdomain_value, data)
     elif record_type == "tls":
         add_domain_record_tls(subdomain_value, data)
+    elif record_type == "sshfp":
+        add_domain_record_sshfp(subdomain_value, data)
     elif record_type == "txt":
         add_domain_record_txt(subdomain_value, data)
 
@@ -1050,6 +1090,14 @@ def add_domain_record_tls(value, data):
 
     # Add the record
     value["tls"].append(data)
+
+def add_domain_record_sshfp(value, data):
+    # Make sure the field exists
+    if "sshfp" not in value:
+        value["sshfp"] = []
+
+    # Add the record
+    value["sshfp"].append(data)
 
 def add_domain_record_txt(value, data):
     # Make sure the field exists

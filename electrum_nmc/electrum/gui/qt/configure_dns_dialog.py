@@ -111,6 +111,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.btnNSCreate.clicked.connect(self.create_ns_record)
         self.ui.btnDSCreate.clicked.connect(self.create_ds_record)
         self.ui.btnTLSCreate.clicked.connect(self.create_tls_record)
+        self.ui.btnSSHFPCreate.clicked.connect(self.create_sshfp_record)
         self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
 
         self.ui.dialogButtons.accepted.connect(self.accept)
@@ -227,6 +228,25 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.insert_record(idx, record)
 
+    def create_sshfp_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        try:
+            data = [
+                int(self.ui.editSSHFPAlgorithm.text()),
+                int(self.ui.editSSHFPFingerprintType.text()),
+                self.ui.editSSHFPFingerprint.text(),
+            ]
+        except ValueError:
+            self.show_error(_("The Algorithm and Fingerprint Type must be integers."))
+            return
+
+        record = [domain, "sshfp", data]
+
+        self.insert_record(idx, record)
+
     def create_txt_record(self):
         model = self.ui.listDNSRecords.model()
         idx = model.rowCount()
@@ -297,6 +317,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             formatted_data = json.dumps(data)
         elif record_type == "tls":
             formatted_record_type = "TLS"
+            formatted_data = json.dumps(data)
+        elif record_type == "sshfp":
+            formatted_record_type = "SSHFP"
             formatted_data = json.dumps(data)
         elif record_type == "txt":
             formatted_record_type = "TXT"
