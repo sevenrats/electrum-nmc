@@ -128,12 +128,17 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             "Tor": "tor",
             "I2P": "i2p",
             "Freenet": "freenet",
+            "ZeroNet": "zeronet",
         }
 
         address_type = address_type_dict[self.ui.comboHostType.currentText()]
 
         if address_type == "freenet" and self.has_freenet_record(domain):
             self.show_error(domain + _(" already has a Freenet record."))
+            return
+
+        if address_type == "zeronet" and self.has_zeronet_record(domain):
+            self.show_error(domain + _(" already has a ZeroNet record."))
             return
 
         address = self.ui.editAHostname.text()
@@ -162,6 +167,15 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         return False
 
+    def has_zeronet_record(self, domain):
+        for record in self.get_records():
+            record_domain, record_type, data = record
+
+            if record_domain == domain and record_type == "address" and data[0] == "zeronet":
+                return True
+
+        return False
+
     def insert_record(self, idx, record):
         domain, record_type, data = record
 
@@ -179,6 +193,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
                 formatted_data = "I2P: " + data[1]
             elif data[0] == "freenet":
                 formatted_data = "Freenet: " + data[1]
+            elif data[0] == "zeronet":
+                formatted_data = "ZeroNet: " + data[1]
             else:
                 raise Exception("Unknown address type")
         elif record_type == "txt":

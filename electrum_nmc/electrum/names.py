@@ -511,6 +511,12 @@ def get_domain_records_address(domain, value):
         if value["freenet"] == None:
             del value["freenet"]
 
+    if "zeronet" in value:
+        new_records, value["zeronet"] = get_domain_records_address_zeronet(domain, value["zeronet"])
+        records.extend(new_records)
+        if value["zeronet"] == None:
+            del value["zeronet"]
+
     return records, value
 
 def get_domain_records_address_ip4(domain, value):
@@ -637,6 +643,31 @@ def get_domain_records_address_freenet(domain, value):
 
     return records, remaining
 
+def get_domain_records_address_zeronet(domain, value):
+    records = []
+    remaining = None
+
+    # Parse the standards-compliant ZeroNet format
+    if type(value) == str:
+        records.append([domain, "address", ["zeronet", value]])
+
+    # Parse the old-style dict ZeroNet format
+    if type(value) == dict:
+        for label in value:
+            # Make sure the ZeroNet value is a string, bail if it's not
+            if type(value[label]) != str:
+                return [], value
+
+            # Special-case for empty ZeroNet key
+            if label == "":
+                single_domain = domain
+            else:
+                single_domain = label + "." + domain
+
+            records.append([single_domain, "address", ["zeronet", value[label]]])
+
+    return records, remaining
+
 def get_domain_records_txt(domain, value):
     # Process Tor specially
     if domain.startswith("_tor."):
@@ -759,6 +790,8 @@ def add_domain_record_address(value, data):
         add_domain_record_address_i2p(value, address_data)
     elif address_type == "freenet":
         add_domain_record_address_freenet(value, address_data)
+    elif address_type == "zeronet":
+        add_domain_record_address_zeronet(value, address_data)
     else:
         raise Exception("Unknown address type")
 
@@ -793,6 +826,14 @@ def add_domain_record_address_freenet(value, data):
 
     # Add the record
     value["freenet"] = data
+
+def add_domain_record_address_zeronet(value, data):
+    # Make sure the field doesn't already exist
+    if "zeronet" in value:
+        raise Exception("Multiple ZeroNet records for one domain")
+
+    # Add the record
+    value["zeronet"] = data
 
 def add_domain_record_txt(value, data):
     # Make sure the field exists
