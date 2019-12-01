@@ -652,6 +652,84 @@ def get_domain_records_map(domain, value):
 
     return records, remaining
 
+def add_domain_record(base_domain, value, record):
+    domain, record_type, data = record
+
+    # Handle Tor records specially
+    if record_type == "address" and data[0] == "tor":
+        domain = "_tor." + domain
+        record_type = "txt"
+        data = data[1]
+
+    if not domain.endswith(base_domain):
+        raise Exception("Base domain mismatch")
+
+    if domain == base_domain:
+        map_labels = []
+    else:
+        subdomain = domain[:-len("." + base_domain)]
+        map_labels = subdomain.split(".")[::-1]
+
+    add_domain_record_map(value, map_labels)
+
+    # Traverse the "map" field until we arrive at the subdomain we want
+    subdomain_value = value
+    for label in map_labels:
+        subdomain_value = subdomain_value["map"][label]
+
+    if record_type == "address":
+        add_domain_record_address(subdomain_value, data)
+    elif record_type == "txt":
+        add_domain_record_txt(subdomain_value, data)
+
+def add_domain_record_map(value, map_labels):
+    if len(map_labels) == 0:
+        return
+
+    # Make sure the map field exists
+    if "map" not in value:
+        value["map"] = {}
+
+    # Make sure the subdomain exists
+    if map_labels[0] not in value["map"]:
+        value["map"][map_labels[0]] = {}
+
+    # Move onto the next map label
+    add_domain_record_map(value["map"][map_labels[0]], map_labels[1:])
+
+def add_domain_record_address(value, data):
+    address_type, address_data = data
+    if address_type == "ip4":
+        add_domain_record_address_ip4(value, address_data)
+    elif address_type == "ip6":
+        add_domain_record_address_ip6(value, address_data)
+    else:
+        raise Exception("Unknown address type")
+
+def add_domain_record_address_ip4(value, data):
+    # Make sure the field exists
+    if "ip" not in value:
+        value["ip"] = []
+
+    # Add the record
+    value["ip"].append(data)
+
+def add_domain_record_address_ip6(value, data):
+    # Make sure the field exists
+    if "ip6" not in value:
+        value["ip6"] = []
+
+    # Add the record
+    value["ip6"].append(data)
+
+def add_domain_record_txt(value, data):
+    # Make sure the field exists
+    if "txt" not in value:
+        value["txt"] = []
+
+    # Add the record
+    value["txt"].append(data)
+
 
 import binascii
 from datetime import datetime, timedelta
