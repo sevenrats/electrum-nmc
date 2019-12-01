@@ -108,6 +108,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.ui.btnACreate.clicked.connect(self.create_address_record)
         self.ui.btnCNAMECreate.clicked.connect(self.create_cname_record)
+        self.ui.btnNSCreate.clicked.connect(self.create_ns_record)
         self.ui.btnDSCreate.clicked.connect(self.create_ds_record)
         self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
 
@@ -162,6 +163,17 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         data = self.ui.editCNAMEAlias.text()
 
         record = [domain, "cname", data]
+
+        self.insert_record(idx, record)
+
+    def create_ns_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        data = self.ui.editNSHosts.text()
+
+        record = [domain, "ns", data]
 
         self.insert_record(idx, record)
 
@@ -246,6 +258,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
                 raise Exception("Unknown address type")
         elif record_type == "cname":
             formatted_record_type = "CNAME"
+            formatted_data = data
+        elif record_type == "ns":
+            formatted_record_type = "NS"
             formatted_data = data
         elif record_type == "ds":
             formatted_record_type = "DS"

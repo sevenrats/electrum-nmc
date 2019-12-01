@@ -470,6 +470,12 @@ def get_domain_records(domain, value):
         if value["alias"] == None:
             del value["alias"]
 
+    if "ns" in value:
+        new_records, value["ns"] = get_domain_records_ns(domain, value["ns"])
+        records.extend(new_records)
+        if value["ns"] == []:
+            del value["ns"]
+
     if "ds" in value:
         new_records, value["ds"] = get_domain_records_ds(domain, value["ds"])
         records.extend(new_records)
@@ -692,6 +698,34 @@ def get_domain_records_cname(domain, value):
 
     return records, remaining
 
+def get_domain_records_ns(domain, value):
+    # Convert string to array (only 1 NS record exists)
+    if type(value) == str:
+        value = [value]
+    
+    # Must be array
+    if type(value) != list:
+        return [], value
+
+    # Parse each array item
+    records = []
+    remaining = []
+    for raw_address in value:
+        single_record, single_remaining = get_domain_records_ns_single(domain, raw_address)
+        if single_record is not None:
+            records.append(single_record)
+        if single_remaining is not None:
+            remaining.append(single_remaining)
+
+    return records, remaining
+
+def get_domain_records_ns_single(domain, value):
+    # Must be string
+    if type(value) != str:
+        return None, value
+
+    return [domain, "ns", value], None
+
 def get_domain_records_ds(domain, value):
     # Must be array
     if type(value) != list:
@@ -820,6 +854,8 @@ def add_domain_record(base_domain, value, record):
         add_domain_record_address(subdomain_value, data)
     elif record_type == "cname":
         add_domain_record_cname(subdomain_value, data)
+    elif record_type == "ns":
+        add_domain_record_ns(subdomain_value, data)
     elif record_type == "ds":
         add_domain_record_ds(subdomain_value, data)
     elif record_type == "txt":
@@ -902,6 +938,14 @@ def add_domain_record_cname(value, data):
 
     # Add the record
     value["alias"] = data
+
+def add_domain_record_ns(value, data):
+    # Make sure the field exists
+    if "ns" not in value:
+        value["ns"] = []
+
+    # Add the record
+    value["ns"].append(data)
 
 def add_domain_record_ds(value, data):
     # Make sure the field exists
