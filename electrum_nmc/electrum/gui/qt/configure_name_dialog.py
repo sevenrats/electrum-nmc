@@ -40,6 +40,7 @@ from electrum.wallet import InternalAddressCorruption
 
 from .paytoedit import PayToEdit
 from .configure_dns_dialog import show_configure_dns
+from .util import MessageBoxMixin
 
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 
@@ -51,7 +52,7 @@ def show_configure_name(identifier, value, parent, is_new):
     d.show()
 
 
-class ConfigureNameDialog(QDialog):
+class ConfigureNameDialog(QDialog, MessageBoxMixin):
     def __init__(self, identifier, value, parent, is_new):
         # We want to be a top-level window
         QDialog.__init__(self, parent=None)

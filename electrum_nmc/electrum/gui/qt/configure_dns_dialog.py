@@ -42,6 +42,13 @@ from .forms.dnsdialog import Ui_DNSDialog
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 
 def show_configure_dns(value, parent):
+    if value != b"":
+        try:
+            json.loads(value)
+        except json.decoder.JSONDecodeError:
+            parent.show_error(_("Current value of name is not valid JSON; please fix this before using the DNS editor."))
+            return
+
     d = ConfigureDNSDialog(value, parent)
 
     dialogs.append(d)
