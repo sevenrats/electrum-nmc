@@ -464,6 +464,12 @@ def get_domain_records(domain, value):
     new_records, value = get_domain_records_address(domain, value)
     records.extend(new_records)
 
+    if "alias" in value:
+        new_records, value["alias"] = get_domain_records_cname(domain, value["alias"])
+        records.extend(new_records)
+        if value["alias"] == None:
+            del value["alias"]
+
     if "txt" in value:
         new_records, value["txt"] = get_domain_records_txt(domain, value["txt"])
         records.extend(new_records)
@@ -668,6 +674,18 @@ def get_domain_records_address_zeronet(domain, value):
 
     return records, remaining
 
+def get_domain_records_cname(domain, value):
+    records = []
+    remaining = None
+
+    # Must be string
+    if type(value) != str:
+        return [], value
+
+    records.append([domain, "cname", value])
+
+    return records, remaining
+
 def get_domain_records_txt(domain, value):
     # Process Tor specially
     if domain.startswith("_tor."):
@@ -762,6 +780,8 @@ def add_domain_record(base_domain, value, record):
 
     if record_type == "address":
         add_domain_record_address(subdomain_value, data)
+    elif record_type == "cname":
+        add_domain_record_cname(subdomain_value, data)
     elif record_type == "txt":
         add_domain_record_txt(subdomain_value, data)
 
@@ -834,6 +854,14 @@ def add_domain_record_address_zeronet(value, data):
 
     # Add the record
     value["zeronet"] = data
+
+def add_domain_record_cname(value, data):
+    # Make sure the field doesn't already exist
+    if "alias" in value:
+        raise Exception("Multiple CNAME records for one domain")
+
+    # Add the record
+    value["alias"] = data
 
 def add_domain_record_txt(value, data):
     # Make sure the field exists
