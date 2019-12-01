@@ -98,10 +98,44 @@ class ConfigureDNSDialog(QDialog):
         for idx, record in enumerate(records):
             self.insert_record(idx, record)
 
+        self.ui.btnACreate.clicked.connect(self.create_address_record)
+        self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
+
         self.ui.dialogButtons.accepted.connect(self.accept)
         self.ui.dialogButtons.rejected.connect(self.reject)
 
         self.accepted.connect(lambda: self.name_dialog.set_value(self.get_value()))
+
+    def get_selected_domain(self):
+        return self.ui.comboDomain.currentText()
+
+    def create_address_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        address_type_dict = {
+            "IPv4": "ip4",
+            "IPv6": "ip6",
+            "Tor": "tor",
+        }
+        address_type = address_type_dict[self.ui.comboHostType.currentText()]
+        address = self.ui.editAHostname.text()
+
+        record = [domain, "address", [address_type, address]]
+
+        self.insert_record(idx, record)
+
+    def create_txt_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        data = self.ui.editTXTData.text()
+
+        record = [domain, "txt", data]
+
+        self.insert_record(idx, record)
 
     def insert_record(self, idx, record):
         domain, record_type, data = record
