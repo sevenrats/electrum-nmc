@@ -410,7 +410,8 @@
        <item>
         <widget class="QLabel" name="labelNSDesc">
          <property name="text">
-          <string>List of master nameservers of the configured domain. Note that this delegates all IP related responsibility of this domain and its sub-domains to the master server, effectively bypassing other settings (e.g. A records). Multiple servers must be comma separated and absolute domains must end in a dot (.). IP addresses are not allowed.</string>
+          <!-- TODO: Reconcile this text with Namecoin Core, which recommends listing multiple nameservers at once. -->
+          <string>Master nameserver of the configured domain. Note that this delegates all IP related responsibility of this domain and its sub-domains to the master server, effectively bypassing other settings (e.g. A records). Absolute domains must end in a dot (.). IP addresses are not allowed.</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
