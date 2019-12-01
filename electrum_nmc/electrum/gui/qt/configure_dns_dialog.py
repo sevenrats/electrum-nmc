@@ -23,6 +23,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from copy import deepcopy
 from enum import IntEnum
 import json
 import sys
@@ -34,7 +35,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 from electrum.i18n import _
-from electrum.names import get_domain_records
+from electrum.names import add_domain_record, get_domain_records
 
 from .forms.dnsdialog import Ui_DNSDialog
 
@@ -144,6 +145,17 @@ class ConfigureDNSDialog(QDialog):
             records.append(single_record)
 
         return records
+
+    def get_value(self):
+        value = deepcopy(self.extra_records)
+
+        for record in self.get_records():
+            add_domain_record(self.base_domain, value, record)
+
+        if value == {}:
+            return b""
+        else:
+            return json.dumps(value).encode("ascii")
 
     def update_headers(self, headers: Union[List[str], Dict[int, str]]):
         # headers is either a list of column names, or a dict: (col_idx->col_name)
