@@ -1076,8 +1076,16 @@ def add_domain_record_address_ip6(value, data):
     if "ip6" not in value:
         value["ip6"] = []
 
+    # Make sure the field is an array
+    if type(value["ip6"]) == str:
+        value["ip6"] = [value["ip6"]]
+
     # Add the record
     value["ip6"].append(data)
+
+    # Minimize to string form if possible
+    if len(value["ip6"]) == 1:
+        value["ip6"] = value["ip6"][0]
 
 def add_domain_record_address_i2p(value, data):
     # Make sure the field exists
