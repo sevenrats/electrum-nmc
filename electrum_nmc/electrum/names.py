@@ -1060,8 +1060,16 @@ def add_domain_record_address_ip4(value, data):
     if "ip" not in value:
         value["ip"] = []
 
+    # Make sure the field is an array
+    if type(value["ip"]) == str:
+        value["ip"] = [value["ip"]]
+
     # Add the record
     value["ip"].append(data)
+
+    # Minimize to string form if possible
+    if len(value["ip"]) == 1:
+        value["ip"] = value["ip"][0]
 
 def add_domain_record_address_ip6(value, data):
     # Make sure the field exists
