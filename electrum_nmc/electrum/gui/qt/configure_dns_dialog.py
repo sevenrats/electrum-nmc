@@ -67,6 +67,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         Columns.DATA: _('Data'),
     }
 
+    TEXT_ADD_SUBDOMAIN = "Add Subdomain..."
+
     def __init__(self, value, parent):
         # We want to be a top-level window
         QDialog.__init__(self, parent=None)
@@ -91,6 +93,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         subdomains.update([record[0] for record in records])
 
         self.ui.comboDomain.addItems(list(subdomains))
+        self.ui.comboDomain.addItem(_(self.__class__.TEXT_ADD_SUBDOMAIN))
+
+        self.ui.comboDomain.activated.connect(self.domain_changed)
 
         self.ui.listDNSRecords.setModel(QStandardItemModel(self))
         self.ui.listDNSRecords.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -120,6 +125,10 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.dialogButtons.rejected.connect(self.reject)
 
         self.accepted.connect(lambda: self.name_dialog.set_value(self.get_value()))
+
+    def domain_changed(self, index):
+        if self.ui.comboDomain.itemText(index) == _(self.__class__.TEXT_ADD_SUBDOMAIN):
+            self.show_error(_("Adding a subdomain is not yet implemented."))
 
     def get_selected_domain(self):
         return self.ui.comboDomain.currentText()
