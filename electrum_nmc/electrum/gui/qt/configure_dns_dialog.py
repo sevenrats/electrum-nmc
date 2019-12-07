@@ -114,6 +114,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.btnSSHFPCreate.clicked.connect(self.create_sshfp_record)
         self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
         self.ui.btnSRVCreate.clicked.connect(self.create_srv_record)
+        self.ui.btnIMPORTCreate.clicked.connect(self.create_import_record)
 
         self.ui.dialogButtons.accepted.connect(self.accept)
         self.ui.dialogButtons.rejected.connect(self.reject)
@@ -299,6 +300,21 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.editSRVPort.setText("")
         self.ui.editSRVHost.setText("")
 
+    def create_import_record(self):
+        model = self.ui.listDNSRecords.model()
+        idx = model.rowCount()
+
+        domain = self.get_selected_domain()
+        imported_name = self.ui.editIMPORTName.text()
+        imported_subdomain = self.ui.editIMPORTSubdomain.text()
+
+        record = [domain, "import", [imported_name, imported_subdomain]]
+
+        self.insert_record(idx, record)
+
+        self.ui.editIMPORTName.setText("")
+        self.ui.editIMPORTSubdomain.setText("")
+
     def has_freenet_record(self, domain):
         for record in self.get_records():
             record_domain, record_type, data = record
@@ -367,6 +383,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             formatted_data = json.dumps(data)
         elif record_type == "srv":
             formatted_record_type = "SRV"
+            formatted_data = json.dumps(data)
+        elif record_type == "import":
+            formatted_record_type = "IMPORT"
             formatted_data = json.dumps(data)
         else:
             raise Exception("Unknown record type")

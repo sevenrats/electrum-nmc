@@ -506,6 +506,12 @@ def get_domain_records(domain, value):
         if value["srv"] == []:
             del value["srv"]
 
+    if "import" in value:
+        new_records, value["import"] = get_domain_records_import(domain, value["import"])
+        records.extend(new_records)
+        if value["import"] == []:
+            del value["import"]
+
     if "map" in value:
         new_records, value["map"] = get_domain_records_map(domain, value["map"])
         records.extend(new_records)
@@ -946,6 +952,54 @@ def get_domain_records_srv_single(domain, value):
 
     return [domain, "srv", value], None
 
+def get_domain_records_import(domain, value):
+    # Convert string to array (only 1 IMPORT record exists)
+    if type(value) == str:
+        value = [value]
+
+    # Must be array
+    if type(value) != list:
+        return [], value
+
+    # Parse each array item
+    records = []
+    remaining = []
+    for raw_address in value:
+        single_record, single_remaining = get_domain_records_import_single(domain, raw_address)
+        if single_record is not None:
+            records.append(single_record)
+        if single_remaining is not None:
+            remaining.append(single_remaining)
+
+    return records, remaining
+
+def get_domain_records_import_single(domain, value):
+    # Convert string to array
+    if type(value) == str:
+        value = [value]
+
+    # Must be array
+    if type(value) != list:
+        return None, value
+
+    # Name must be present
+    if len(value) < 1:
+        return None, value
+
+    # Name must be a string
+    if type(value[0]) != str:
+        return None, value
+
+    # Don't process IMPORT records with unknown fields
+    if len(value) > 2:
+        return None, value
+
+    # Add Subdomain Selector if missing
+    if len(value) < 2:
+        value.append("")
+
+    return [domain, "import", value], None
+
 def get_domain_records_map(domain, value):
     # Must be dict
     if type(value) != dict:
@@ -1024,6 +1078,8 @@ def add_domain_record(base_domain, value, record):
         add_domain_record_txt(subdomain_value, data)
     elif record_type == "srv":
         add_domain_record_srv(subdomain_value, data)
+    elif record_type == "import":
+        add_domain_record_import(subdomain_value, data)
 
 def add_domain_record_map(value, map_labels):
     if len(map_labels) == 0:
@@ -1194,6 +1250,30 @@ def add_domain_record_srv(value, data):
 
     # Add the record
     value["srv"].append(data)
+
+def add_domain_record_import(value, data):
+    # Make sure the field exists
+    if "import" not in value:
+        value["import"] = []
+
+    # Make sure the field is an array
+    if type(value["import"]) == str:
+        value["import"] = [value["import"]]
+
+    # Minimize empty Subdomain Selector if possible
+    if type(data) == list and len(data) == 2 and data[1] == "":
+        data = data[0]
+
+    # Minimize missing Subdomain Selector if possible
+    if type(data) == list and len(data) == 1:
+        data = data[0]
+
+    # Add the record
+    value["import"].append(data)
+
+    # Minimize to string form if possible
+    if len(value["import"]) == 1 and type(value["import"][0]) == str:
+        value["import"] = value["import"][0]
 
 
 import binascii
