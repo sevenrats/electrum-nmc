@@ -153,6 +153,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.insert_record(idx, record)
 
+        self.ui.editAHostname.setText("")
+
     def create_cname_record(self):
         model = self.ui.listDNSRecords.model()
         idx = model.rowCount()
@@ -169,6 +171,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.insert_record(idx, record)
 
+        self.ui.editCNAMEAlias.setText("")
+
     def create_ns_record(self):
         model = self.ui.listDNSRecords.model()
         idx = model.rowCount()
@@ -179,6 +183,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         record = [domain, "ns", data]
 
         self.insert_record(idx, record)
+
+        self.ui.editNSHosts.setText("")
 
     def create_ds_record(self):
         model = self.ui.listDNSRecords.model()
@@ -199,6 +205,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         record = [domain, "ds", data]
 
         self.insert_record(idx, record)
+
+        self.ui.editDSKeyTag.setText("")
+        self.ui.editDSHash.setText("")
 
     def create_tls_record(self):
         model = self.ui.listDNSRecords.model()
@@ -229,6 +238,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.insert_record(idx, record)
 
+        self.ui.editTLSData.setPlainText("")
+
     def create_sshfp_record(self):
         model = self.ui.listDNSRecords.model()
         idx = model.rowCount()
@@ -248,6 +259,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.insert_record(idx, record)
 
+        self.ui.editSSHFPFingerprint.setText("")
+
     def create_txt_record(self):
         model = self.ui.listDNSRecords.model()
         idx = model.rowCount()
@@ -258,6 +271,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         record = [domain, "txt", data]
 
         self.insert_record(idx, record)
+
+        self.ui.editTXTData.setText("")
 
     def create_srv_record(self):
         model = self.ui.listDNSRecords.model()
@@ -278,6 +293,11 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         record = [domain, "srv", data]
 
         self.insert_record(idx, record)
+
+        self.ui.editSRVPriority.setText("")
+        self.ui.editSRVWeight.setText("")
+        self.ui.editSRVPort.setText("")
+        self.ui.editSRVHost.setText("")
 
     def has_freenet_record(self, domain):
         for record in self.get_records():
