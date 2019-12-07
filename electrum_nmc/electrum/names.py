@@ -1168,8 +1168,16 @@ def add_domain_record_txt(value, data):
     if "txt" not in value:
         value["txt"] = []
 
+    # Make sure the field is an array
+    if type(value["txt"]) == str:
+        value["txt"] = [value["txt"]]
+
     # Add the record
     value["txt"].append(data)
+
+    # Minimize to string form if possible
+    if len(value["txt"]) == 1:
+        value["txt"] = value["txt"][0]
 
 def add_domain_record_srv(value, data):
     # Make sure the field exists
