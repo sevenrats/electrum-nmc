@@ -430,7 +430,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         if value == {}:
             return b""
         else:
-            return json.dumps(value).encode("ascii")
+            # Use compact encoding for JSON
+            return json.dumps(value, separators=(',', ':')).encode("ascii")
 
     def update_headers(self, headers: Union[List[str], Dict[int, str]]):
         # headers is either a list of column names, or a dict: (col_idx->col_name)
