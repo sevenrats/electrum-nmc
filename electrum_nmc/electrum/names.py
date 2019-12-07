@@ -1124,8 +1124,16 @@ def add_domain_record_ns(value, data):
     if "ns" not in value:
         value["ns"] = []
 
+    # Make sure the field is an array
+    if type(value["ns"]) == str:
+        value["ns"] = [value["ns"]]
+
     # Add the record
     value["ns"].append(data)
+
+    # Minimize to string form if possible
+    if len(value["ns"]) == 1:
+        value["ns"] = value["ns"][0]
 
 def add_domain_record_ds(value, data):
     # Make sure the field exists
