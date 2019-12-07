@@ -1092,8 +1092,16 @@ def add_domain_record_address_i2p(value, data):
     if "i2p" not in value:
         value["i2p"] = []
 
+    # Make sure the field is an array
+    if type(value["i2p"]) == str:
+        value["i2p"] = [value["i2p"]]
+
     # Add the record
     value["i2p"].append(data)
+
+    # Minimize to string form if possible
+    if len(value["i2p"]) == 1:
+        value["i2p"] = value["i2p"][0]
 
 def add_domain_record_address_freenet(value, data):
     # Make sure the field doesn't already exist
