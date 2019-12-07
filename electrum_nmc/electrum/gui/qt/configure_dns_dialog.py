@@ -38,6 +38,7 @@ from electrum.i18n import _
 from electrum.names import add_domain_record, get_domain_records
 
 from .forms.dnsdialog import Ui_DNSDialog
+from .forms.dnssubdomaindialog import Ui_DNSSubDomainDialog
 from .util import MessageBoxMixin
 
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
@@ -70,8 +71,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
     TEXT_ADD_SUBDOMAIN = "Add Subdomain..."
 
     def __init__(self, value, parent):
-        # We want to be a top-level window
-        QDialog.__init__(self, parent=None)
+        QDialog.__init__(self, parent=parent)
 
         self.name_dialog = parent
 
@@ -128,7 +128,17 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
     def domain_changed(self, index):
         if self.ui.comboDomain.itemText(index) == _(self.__class__.TEXT_ADD_SUBDOMAIN):
-            self.show_error(_("Adding a subdomain is not yet implemented."))
+            d = QDialog(parent=self)
+
+            ui = Ui_DNSSubDomainDialog()
+            ui.setupUi(d)
+
+            ui.labelDomainName.setText(self.base_domain)
+
+            ui.btnAdd.accepted.connect(lambda: self.ui.comboDomain.addItem(ui.editSubDomain.text() + "." + self.base_domain))
+
+            dialogs.append(d)
+            d.show()
 
     def get_selected_domain(self):
         return self.ui.comboDomain.currentText()
