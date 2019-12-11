@@ -92,8 +92,10 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         subdomains.update([record[0] for record in records])
 
-        self.ui.comboDomain.addItems(list(subdomains))
         self.ui.comboDomain.addItem(_(self.__class__.TEXT_ADD_SUBDOMAIN))
+
+        for domain in subdomains:
+            self.add_domain(domain)
 
         self.ui.comboDomain.activated.connect(self.domain_changed)
 
@@ -126,6 +128,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.accepted.connect(lambda: self.name_dialog.set_value(self.get_value()))
 
+    def add_domain(self, domain):
+        self.ui.comboDomain.addItem(domain)
+
     def domain_changed(self, index):
         if self.ui.comboDomain.itemText(index) == _(self.__class__.TEXT_ADD_SUBDOMAIN):
             d = QDialog(parent=self)
@@ -135,7 +140,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
             ui.labelDomainName.setText(self.base_domain)
 
-            ui.btnAdd.accepted.connect(lambda: self.ui.comboDomain.addItem(ui.editSubDomain.text() + "." + self.base_domain))
+            ui.btnAdd.accepted.connect(lambda: self.add_domain(ui.editSubDomain.text() + "." + self.base_domain))
 
             dialogs.append(d)
             d.show()
