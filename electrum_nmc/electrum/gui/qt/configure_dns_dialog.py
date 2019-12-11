@@ -97,6 +97,9 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         for domain in subdomains:
             self.add_domain(domain)
 
+        # Default to base domain
+        self.ui.comboDomain.setCurrentIndex(0)
+
         self.ui.comboDomain.activated.connect(self.domain_changed)
 
         self.ui.listDNSRecords.setModel(QStandardItemModel(self))
@@ -138,11 +141,13 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
             # Duplicate of existing domain.
             if domain == domain_at_index:
+                combo.setCurrentIndex(index)
                 return
 
             # "Add Subdomain" item is always at the end.
             if domain_at_index == _(self.__class__.TEXT_ADD_SUBDOMAIN):
                 combo.insertItem(index, domain)
+                combo.setCurrentIndex(index)
                 return
 
             domain_at_index_reverse = domain_at_index.split(".")[::-1]
@@ -150,6 +155,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             # We've found the right place to insert it.
             if domain_reverse < domain_at_index_reverse:
                 combo.insertItem(index, domain)
+                combo.setCurrentIndex(index)
                 return
 
     def domain_changed(self, index):
