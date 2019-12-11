@@ -129,7 +129,28 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.accepted.connect(lambda: self.name_dialog.set_value(self.get_value()))
 
     def add_domain(self, domain):
-        self.ui.comboDomain.addItem(domain)
+        domain_reverse = domain.split(".")[::-1]
+
+        combo = self.ui.comboDomain
+
+        for index in range(combo.count()):
+            domain_at_index = combo.itemText(index)
+
+            # Duplicate of existing domain.
+            if domain == domain_at_index:
+                return
+
+            # "Add Subdomain" item is always at the end.
+            if domain_at_index == _(self.__class__.TEXT_ADD_SUBDOMAIN):
+                combo.insertItem(index, domain)
+                return
+
+            domain_at_index_reverse = domain_at_index.split(".")[::-1]
+
+            # We've found the right place to insert it.
+            if domain_reverse < domain_at_index_reverse:
+                combo.insertItem(index, domain)
+                return
 
     def domain_changed(self, index):
         if self.ui.comboDomain.itemText(index) == _(self.__class__.TEXT_ADD_SUBDOMAIN):
