@@ -586,6 +586,10 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             self.ui.editSSHFPFingerprint.setText(fingerprint)
 
             self.force_one_tab(self.ui.tabSSHFP)
+        elif record_type == "txt":
+            self.ui.editTXTData.setText(record_data)
+
+            self.force_one_tab(self.ui.tabTXT)
 
         self.editing_row = row
 
