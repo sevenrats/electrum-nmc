@@ -590,6 +590,19 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             self.ui.editTXTData.setText(record_data)
 
             self.force_one_tab(self.ui.tabTXT)
+        elif record_type == "srv":
+            priority, weight, port, host = record_data
+
+            priority = str(priority)
+            weight = str(weight)
+            port = str(port)
+
+            self.ui.editSRVPriority.setText(priority)
+            self.ui.editSRVWeight.setText(weight)
+            self.ui.editSRVPort.setText(port)
+            self.ui.editSRVHost.setText(host)
+
+            self.force_one_tab(self.ui.tabSRV)
 
         self.editing_row = row
 
