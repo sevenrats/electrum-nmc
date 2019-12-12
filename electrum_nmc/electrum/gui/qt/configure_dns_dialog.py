@@ -371,7 +371,10 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.editIMPORTSubdomain.setText("")
 
     def has_freenet_record(self, domain):
-        for record in self.get_records():
+        for index, record in enumerate(self.get_records()):
+            if index == self.editing_row:
+                continue
+
             record_domain, record_type, data = record
 
             if record_domain == domain and record_type == "address" and data[0] == "freenet":
@@ -380,7 +383,10 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         return False
 
     def has_zeronet_record(self, domain):
-        for record in self.get_records():
+        for index, record in enumerate(self.get_records()):
+            if index == self.editing_row:
+                continue
+
             record_domain, record_type, data = record
 
             if record_domain == domain and record_type == "address" and data[0] == "zeronet":
@@ -389,7 +395,10 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         return False
 
     def has_cname_record(self, domain):
-        for record in self.get_records():
+        for index, record in enumerate(self.get_records()):
+            if index == self.editing_row:
+                continue
+
             record_domain, record_type, data = record
 
             if record_domain == domain and record_type == "cname":
