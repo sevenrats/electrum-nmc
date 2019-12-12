@@ -518,14 +518,21 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
             self.ui.editAHostname.setText(address_data)
 
-            for tab_index in range(self.ui.tabRecords.count()):
-                if self.ui.tabRecords.widget(tab_index) == self.ui.tabA:
-                    self.ui.tabRecords.setTabEnabled(tab_index, True)
-                    self.ui.tabRecords.setCurrentIndex(tab_index)
-                else:
-                    self.ui.tabRecords.setTabEnabled(tab_index, False)
+            self.force_one_tab(self.ui.tabA)
+        elif record_type == "cname":
+            self.ui.editCNAMEAlias.setText(record_data)
+
+            self.force_one_tab(self.ui.tabCNAME)
 
         self.editing_row = row
+
+    def force_one_tab(self, tab):
+        for tab_index in range(self.ui.tabRecords.count()):
+            if self.ui.tabRecords.widget(tab_index) == tab:
+                self.ui.tabRecords.setTabEnabled(tab_index, True)
+                self.ui.tabRecords.setCurrentIndex(tab_index)
+            else:
+                self.ui.tabRecords.setTabEnabled(tab_index, False)
 
     def get_records(self):
         model = self.ui.listDNSRecords.model()
