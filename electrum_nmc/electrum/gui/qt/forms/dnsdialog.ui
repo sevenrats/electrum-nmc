@@ -278,6 +278,7 @@
        </item>
       </layout>
      </widget>
+     <!--
      <widget class="QWidget" name="tabSOARP">
       <attribute name="title">
        <string>SOA/RP</string>
@@ -399,6 +400,7 @@
        </item>
       </layout>
      </widget>
+     -->
      <widget class="QWidget" name="tabNS">
       <property name="autoFillBackground">
        <bool>false</bool>
