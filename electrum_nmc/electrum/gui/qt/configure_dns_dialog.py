@@ -128,6 +128,7 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.btnSRVCreate.clicked.connect(self.create_srv_record)
         self.ui.btnIMPORTCreate.clicked.connect(self.create_import_record)
 
+        self.ui.btnDeleteRecord.clicked.connect(self.delete_selected_records)
         self.ui.btnEditRecord.clicked.connect(self.edit_selected_record)
 
         self.ui.dialogButtons.accepted.connect(self.accept)
@@ -622,6 +623,27 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
                 self.ui.tabRecords.setCurrentIndex(tab_index)
             else:
                 self.ui.tabRecords.setTabEnabled(tab_index, False)
+
+    def delete_selected_records(self):
+        table = self.ui.listDNSRecords
+
+        # Get all selected cells
+        cell_indexes = table.selectionModel().selectedIndexes()
+
+        # Get the rows of all selected cells
+        rows = set([cell.row() for cell in cell_indexes])
+
+        # Sort the rows in reverse
+        rows = sorted(rows, reverse=True)
+
+        # Get the model
+        model = table.model()
+
+        # Remove the rows
+        for row in rows:
+            model.removeRow(row)
+
+        self.update_byte_usage()
 
     def get_records(self):
         model = self.ui.listDNSRecords.model()

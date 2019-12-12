@@ -1291,6 +1291,13 @@
         </spacer>
        </item>
        <item>
+        <widget class="QPushButton" name="btnDeleteRecord">
+         <property name="text">
+          <string>Delete Record</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="btnEditRecord">
          <property name="text">
           <string>Edit Record</string>
