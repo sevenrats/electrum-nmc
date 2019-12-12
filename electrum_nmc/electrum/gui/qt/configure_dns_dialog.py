@@ -575,6 +575,17 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             self.ui.editTLSData.setPlainText(cert_data)
 
             self.force_one_tab(self.ui.tabTLS)
+        elif record_type == "sshfp":
+            algorithm, fingerprint_type, fingerprint = record_data
+
+            algorithm = str(algorithm)
+            fingerprint_type = str(fingerprint_type)
+
+            self.ui.editSSHFPAlgorithm.setText(algorithm)
+            self.ui.editSSHFPFingerprintType.setText(fingerprint_type)
+            self.ui.editSSHFPFingerprint.setText(fingerprint)
+
+            self.force_one_tab(self.ui.tabSSHFP)
 
         self.editing_row = row
 
