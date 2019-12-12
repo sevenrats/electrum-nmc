@@ -603,6 +603,15 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             self.ui.editSRVHost.setText(host)
 
             self.force_one_tab(self.ui.tabSRV)
+        elif record_type == "import":
+            imported_name, imported_subdomain = record_data
+
+            self.ui.editIMPORTName.setText(imported_name)
+            self.ui.editIMPORTSubdomain.setText(imported_subdomain)
+
+            self.force_one_tab(self.ui.tabIMPORT)
+        else:
+            raise Exception("Unknown record type")
 
         self.editing_row = row
 
