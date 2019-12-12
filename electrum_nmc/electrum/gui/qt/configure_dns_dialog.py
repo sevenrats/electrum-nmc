@@ -549,6 +549,25 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             self.ui.editDSHash.setText(fingerprint)
 
             self.force_one_tab(self.ui.tabDS)
+        elif record_type == "tls":
+            protocol, port, tls = record_data
+
+            port = str(port)
+
+            cert_usage, selector, matching_type, cert_data = tls
+
+            cert_usage = str(cert_usage)
+            selector = str(selector)
+            matching_type = str(matching_type)
+
+            self.ui.editTLSProto.setText(protocol)
+            self.ui.editTLSPort.setText(port)
+            self.ui.editTLSCertUsage.setText(cert_usage)
+            self.ui.editTLSSelector.setText(selector)
+            self.ui.editTLSMatchingType.setText(matching_type)
+            self.ui.editTLSData.setPlainText(cert_data)
+
+            self.force_one_tab(self.ui.tabTLS)
 
         self.editing_row = row
 
