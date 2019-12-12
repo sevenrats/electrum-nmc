@@ -554,6 +554,13 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
             port = str(port)
 
+            if type(tls) == dict:
+                if "dane" in tls:
+                    tls = tls["dane"]
+                else:
+                    self.show_error(_("Only DANE-formatted TLS records can be edited."))
+                    return
+
             cert_usage, selector, matching_type, cert_data = tls
 
             cert_usage = str(cert_usage)
