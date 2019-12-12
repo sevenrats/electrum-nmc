@@ -536,6 +536,19 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             self.ui.editNSHosts.setText(record_data)
 
             self.force_one_tab(self.ui.tabNS)
+        elif record_type == "ds":
+            key_tag, algorithm, hash_type, fingerprint = record_data
+
+            key_tag = str(key_tag)
+            algorithm = str(algorithm)
+            hash_type = str(hash_type)
+
+            self.ui.editDSKeyTag.setText(key_tag)
+            self.ui.editDSAlgorithm.setText(algorithm)
+            self.ui.editDSHashType.setText(hash_type)
+            self.ui.editDSHash.setText(fingerprint)
+
+            self.force_one_tab(self.ui.tabDS)
 
         self.editing_row = row
 
