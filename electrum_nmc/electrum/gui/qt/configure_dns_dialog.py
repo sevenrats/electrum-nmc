@@ -532,6 +532,10 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
             self.ui.editCNAMEAlias.setText(record_data)
 
             self.force_one_tab(self.ui.tabCNAME)
+        elif record_type == "ns":
+            self.ui.editNSHosts.setText(record_data)
+
+            self.force_one_tab(self.ui.tabNS)
 
         self.editing_row = row
 
