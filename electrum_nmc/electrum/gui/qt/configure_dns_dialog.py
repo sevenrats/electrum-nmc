@@ -78,6 +78,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui = Ui_DNSDialog()
         self.ui.setupUi(self)
 
+        self.editing_row = None
+
         identifier = self.name_dialog.identifier.decode('ascii')
         if self.name_dialog.namespace == "d":
             self.base_domain = identifier[len("d/"):] + ".bit"
@@ -125,6 +127,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.btnTXTCreate.clicked.connect(self.create_txt_record)
         self.ui.btnSRVCreate.clicked.connect(self.create_srv_record)
         self.ui.btnIMPORTCreate.clicked.connect(self.create_import_record)
+
+        self.ui.btnEditRecord.clicked.connect(self.edit_selected_record)
 
         self.ui.dialogButtons.accepted.connect(self.accept)
         self.ui.dialogButtons.rejected.connect(self.reject)
@@ -453,7 +457,75 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
 
         self.ui.listDNSRecords.model().insertRow(idx, record_item)
 
+        # Remove the old row if we were editing an existing row.
+        if self.editing_row is not None:
+            self.ui.listDNSRecords.model().removeRow(self.editing_row)
+            self.editing_row = None
+
+        # Show any tabs that were hidden before because we were editing an
+        # existing row.
+        for tab_index in range(self.ui.tabRecords.count()):
+            self.ui.tabRecords.setTabEnabled(tab_index, True)
+
         self.update_byte_usage()
+
+    def edit_selected_record(self):
+        table = self.ui.listDNSRecords
+
+        # Get all selected cells
+        cell_indexes = table.selectionModel().selectedIndexes()
+
+        # Get the rows of all selected cells
+        rows = set([cell.row() for cell in cell_indexes])
+
+        # Can't edit more than 1 row at once.
+        if len(rows) != 1:
+            return
+
+        # Get the single row
+        row = list(rows)[0]
+
+        model = table.model()
+
+        # Get the indexes for each cell in the row
+        row_indexes = [model.index(row, column) for column in range(model.columnCount())]
+
+        # Extract the data from each cell in the row
+        single_record = list([model.data(index, Qt.UserRole) for index in row_indexes])
+
+        domain = single_record[0]
+
+        self.ui.comboDomain.setCurrentText(domain)
+
+        # Used to decide which tab to open
+        record_type = single_record[1]
+
+        # We only allow editing the data in column 2
+        record_data = single_record[2]
+
+        if record_type == "address":
+            address_type, address_data = record_data
+
+            address_type_dict = {
+                "ip4": "IPv4",
+                "ip6": "IPv6",
+                "tor": "Tor",
+                "i2p": "I2P",
+                "freenet": "Freenet",
+                "zeronet": "ZeroNet",
+            }
+            self.ui.comboHostType.setCurrentText(address_type_dict[address_type])
+
+            self.ui.editAHostname.setText(address_data)
+
+            for tab_index in range(self.ui.tabRecords.count()):
+                if self.ui.tabRecords.widget(tab_index) == self.ui.tabA:
+                    self.ui.tabRecords.setTabEnabled(tab_index, True)
+                    self.ui.tabRecords.setCurrentIndex(tab_index)
+                else:
+                    self.ui.tabRecords.setTabEnabled(tab_index, False)
+
+        self.editing_row = row
 
     def get_records(self):
         model = self.ui.listDNSRecords.model()
