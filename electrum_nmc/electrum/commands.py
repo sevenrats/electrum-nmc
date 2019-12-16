@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from .network import Network
     from .simple_config import SimpleConfig
 
+from jsonrpclib import Fault
 
 known_commands = {}
 
@@ -1126,7 +1127,7 @@ class Commands:
                     error_request_failed = e
 
         if error_not_found is not None:
-            raise error_not_found
+            return Fault(-4, str(error_not_found))
         if error_request_failed is not None:
             raise error_request_failed
 
