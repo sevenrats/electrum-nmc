@@ -4,6 +4,11 @@
         "s": "50002",
         "version": "1.4"
     },
+    "electrum.namebrow.se": {
+        "pruning": "-",
+        "s": "50002",
+        "version": "1.4"
+    },
     "electrum-nmc.le-space.de": {
         "pruning": "-",
         "s": "50002",
