@@ -79,11 +79,7 @@ class NetworkTimeout:
     # seconds
     class Generic:
         NORMAL = 30
-        # Upstream uses 45 for RELAXED; we drop to 15 to improve initial
-        # connection time in Tor Browser.  TODO: Find a better approach here,
-        # maybe involving checking the Tor status via the control port so that
-        # we don't open connections until Tor is ready.
-        RELAXED = 15
+        RELAXED = 45
         MOST_RELAXED = 180
     class Urgent(Generic):
         NORMAL = 10
