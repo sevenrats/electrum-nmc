@@ -633,7 +633,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
 
     def _start_random_interface_clean(self):
         with self.interfaces_lock:
-            exclude_set = self.disconnected_servers_clean | set(self.interfaces_clean) | self.connecting_clean
+            exclude_set = set(self.interfaces_clean) | self._connecting_clean
         server = pick_random_server(self.get_servers(), self.protocol, exclude_set)
         if server:
             self._start_interface_clean(server)
@@ -871,7 +871,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                 assert server not in self.interfaces_clean
                 self.interfaces_clean[server] = interface
         finally:
-            try: self.connecting_clean.remove(server)
+            try: self._connecting_clean.remove(server)
             except KeyError: pass
 
         self._add_recent_server(server)
@@ -1327,7 +1327,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         assert not self.taskgroup
         self.taskgroup = taskgroup = SilentTaskGroup()
         assert not self.interface and not self.interfaces
-        assert not self._connecting and not self.connecting_clean
+        assert not self._connecting and not self._connecting_clean
         self.logger.info('starting network')
         self._clear_addr_retry_times()
         self._set_proxy(deserialize_proxy(self.config.get('proxy')))
@@ -1373,7 +1373,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         self.interfaces = {}
         self.interfaces_for_stream_ids = {}
         self._connecting.clear()
-        self.connecting_clean.clear()
+        self._connecting_clean.clear()
         if not full_shutdown:
             util.trigger_callback('network_updated')
 
