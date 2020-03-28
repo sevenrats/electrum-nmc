@@ -816,7 +816,13 @@ class Network(Logger):
 
         server = interface.server
         if isinstance(interface, InterfaceSecondary):
-            if interface in self.interfaces_clean.values():
+            # Interfaces that are on the dirty list
+            # (self.interfaces_for_stream_ids) must be isolated, so we don't
+            # touch the global disconnected list when they disconnect.  (Also
+            # those interfaces are expected to disconnect after a while since
+            # they don't have keepalive enabled, so adding them to the
+            # disconnected list would be inappropriate anyway.)
+            if interface not in self.interfaces_for_stream_ids.values():
                 self.disconnected_servers_clean.add(server)
         else:
             self.disconnected_servers.add(server)
