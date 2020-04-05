@@ -1229,7 +1229,7 @@ class Commands:
                         "ismine": is_mine,
                     }
 
-        raise Exception("missing name op")
+        raise Exception("missing name op (txid {})".format(txid))
 
     @command('n')
     def unpausenetwork(self):
