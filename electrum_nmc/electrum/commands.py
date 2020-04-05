@@ -1172,7 +1172,7 @@ class Commands:
                 # We can't verify the transaction because we're still syncing,
                 # but we have reason to believe that previous transactions will
                 # be stale.  So we have to error.
-                raise Exception('The blockchain is still syncing')
+                raise Exception('The blockchain is still syncing (latest purported transaction height {}, local chain height {}, server chain height {})'.format(tx_candidate["height"], local_chain_height, server_chain_height))
 
             tx_best = tx_candidate
             break
