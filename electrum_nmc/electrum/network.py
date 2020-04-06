@@ -327,6 +327,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         dir_path = os.path.join(self.config.path, 'certs')
         util.make_dir(dir_path)
 
+        self.paused = self.config.get('pause_network', False)
         # the main server we are currently communicating with
         self.interface = None
         self.default_server_changed_event = asyncio.Event()
@@ -1332,7 +1333,8 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         self._clear_addr_retry_times()
         self._set_proxy(deserialize_proxy(self.config.get('proxy')))
         self._maybe_set_oneserver()
-        await self.taskgroup.spawn(self._run_new_interface(self.default_server))
+        if not self.paused:
+            await self.taskgroup.spawn(self._run_new_interface(self.default_server))
 
         async def main():
             self.logger.info("starting taskgroup.")
@@ -1433,6 +1435,9 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                     await self.interface.taskgroup.spawn(self._request_fee_estimates, self.interface)
 
         while True:
+            if self.paused:
+                await asyncio.sleep(0.1)
+                continue
             try:
                 await maybe_start_new_interfaces()
                 await maintain_healthy_spread_of_connected_servers()
