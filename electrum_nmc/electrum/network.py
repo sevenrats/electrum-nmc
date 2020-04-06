@@ -292,6 +292,7 @@ class Network(Logger):
         # retry times
         self.server_retry_time = time.time()
         self.nodes_retry_time = time.time()
+        self.paused = self.config.get('pause_network', False)
         # the main server we are currently communicating with
         self.interface = None  # type: Interface
         # set of servers we have an ongoing connection with
@@ -1266,7 +1267,8 @@ class Network(Logger):
         self.server_queue_clean = queue.Queue()
         self._set_proxy(deserialize_proxy(self.config.get('proxy')))
         self._set_oneserver(self.config.get('oneserver', False))
-        self._start_interface(self.default_server)
+        if not self.paused:
+            self._start_interface(self.default_server)
 
         async def main():
             try:
@@ -1374,6 +1376,9 @@ class Network(Logger):
                     await self.interface.group.spawn(self._request_fee_estimates, self.interface)
 
         while True:
+            if self.paused:
+                await asyncio.sleep(0.1)
+                continue
             try:
                 await launch_already_queued_up_new_interfaces()
                 await maybe_queue_new_interfaces_to_be_launched_later()

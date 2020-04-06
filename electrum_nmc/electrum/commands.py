@@ -1223,6 +1223,12 @@ class Commands:
 
         raise Exception("missing name op")
 
+    @command('n')
+    def unpausenetwork(self):
+        """Unpause network if it was paused at startup."""
+        self.network.paused = False
+        return True
+
     @command('w')
     def removelocaltx(self, txid):
         """Remove a 'local' transaction from the wallet, and its dependent
