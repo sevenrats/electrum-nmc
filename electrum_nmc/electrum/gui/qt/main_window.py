@@ -46,6 +46,7 @@ from PyQt5.QtWidgets import (QMessageBox, QComboBox, QSystemTrayIcon, QTabWidget
                              QHBoxLayout, QPushButton, QScrollArea, QTextEdit,
                              QShortcut, QMainWindow, QCompleter, QInputDialog,
                              QWidget, QMenu, QSizePolicy, QStatusBar)
+from jsonrpclib import Fault
 
 import electrum
 from electrum import (keystore, simple_config, ecc, constants, util, bitcoin, commands,
@@ -3579,7 +3580,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         name_exists = True
         name_valid = True
         try:
-            name_show(identifier_ascii)
+            result = name_show(identifier_ascii)
+            if isinstance(result, Fault) and result.error()["code"] == -4:
+                name_exists = False
         except commands.NameNotFoundError:
             name_exists = False
         except util.BitcoinException:
