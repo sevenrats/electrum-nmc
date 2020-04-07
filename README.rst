@@ -70,7 +70,7 @@ Run install (this should install dependencies)::
 Compile the Qt UI::
 
     sudo apt-get install pyqt5-dev-tools
-    for i in dnsdialog dnssubdomaindialog; do pyuic5 electrum_nmc/electrum/gui/qt/forms/$i.ui --execute --output=electrum_nmc/electrum/gui/qt/forms/$i.py; sed -i s/qvalidatedlineedit/.qvalidatedlineedit/ electrum_nmc/electrum/gui/qt/forms/$i.py; done
+    ./contrib/make_qt_forms
 
 Compile the protobuf description file::
 
