@@ -69,6 +69,7 @@ setup(
         'electrum_nmc.electrum',
         'electrum_nmc.electrum.gui',
         'electrum_nmc.electrum.gui.qt',
+        'electrum_nmc.electrum.gui.qt.forms',
         'electrum_nmc.electrum.plugins',
     ] + [('electrum_nmc.electrum.plugins.'+pkg) for pkg in find_packages('electrum_nmc/electrum/plugins')],
     package_dir={
