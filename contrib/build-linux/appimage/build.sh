@@ -130,6 +130,12 @@ info "preparing electrum-locale."
 )
 
 
+info "Compiling Namecoin-Qt forms..."
+pushd "$PROJECT_ROOT"
+./contrib/make_qt_forms
+popd
+
+
 info "installing electrum-nmc and its dependencies."
 mkdir -p "$CACHEDIR/pip_cache"
 "$python" -m pip install --no-warn-script-location --cache-dir "$CACHEDIR/pip_cache" -r "$CONTRIB/deterministic-build/requirements.txt"
