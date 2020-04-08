@@ -65,6 +65,9 @@ from jsonrpclib import Fault
 known_commands = {}
 
 
+class NotSynchronizedException(Exception):
+    pass
+
 class NameNotFoundError(Exception):
     pass
 
@@ -76,6 +79,7 @@ class NamePreRegistrationPendingError(Exception):
 
 class NameUpdatedTooRecentlyError(Exception):
     pass
+
 
 def satoshis(amount):
     # satoshi conversion must not be performed by the parser
