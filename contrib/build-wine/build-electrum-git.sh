@@ -38,6 +38,9 @@ for i in ./locale/*; do
 done
 popd
 
+info "Compiling Namecoin-Qt forms..."
+./contrib/make_qt_forms
+
 find -exec touch -d '2000-11-11T11:11:11+00:00' {} +
 popd
 
