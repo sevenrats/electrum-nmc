@@ -1123,10 +1123,17 @@ class Commands:
         for i in range(3):
             try:
                 return self.name_show_single_try(identifier, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id)
+            except NotSynchronizedException as e:
+                # If the chain isn't synced, asking another server won't help.
+                raise e
             except NameNotFoundError as e:
+                # NXDOMAIN can't be verified (until UNO commitments are a
+                # thing), so try another server.
                 if error_not_found is None:
                     error_not_found = e
-            except BestEffortRequestFailed as e:
+            except Exception as e:
+                # Any other error is likely to be a verification failure or
+                # network failure; either way, try another server.
                 if error_request_failed is None:
                     error_request_failed = e
 
