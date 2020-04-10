@@ -513,6 +513,11 @@ class Network(Logger):
         if self.proxy is None:
             return self.interface
 
+        # If "oneserver" mode is in use, then the user doesn't want requests to
+        # leak outside of their main server.
+        if self.oneserver:
+            return self.interface
+
         try:
             # Reuse an existing interface if it already exists for this stream
             # ID.
@@ -1335,7 +1340,7 @@ class Network(Logger):
             while self.server_queue.qsize() > 0:
                 server = self.server_queue.get()
                 await self.main_taskgroup.spawn(self._run_new_interface(server))
-            if self.proxy is not None:
+            if self.proxy is not None and not self.oneserver:
                 while self.server_queue_clean.qsize() > 0:
                     server = self.server_queue_clean.get()
                     await self.main_taskgroup.spawn(self._run_new_interface_clean(server))
@@ -1344,7 +1349,7 @@ class Network(Logger):
             for i in range(self.num_server - len(self.interfaces) - len(self.connecting)):
                 # FIXME this should try to honour "healthy spread of connected servers"
                 self._start_random_interface()
-            if self.proxy is not None:
+            if self.proxy is not None and not self.oneserver:
                 for i in range(self.num_server - len(self.interfaces_clean) - len(self.connecting_clean)):
                     # FIXME this should try to honour "healthy spread of connected servers"
                     self._start_random_interface_clean()
@@ -1361,7 +1366,7 @@ class Network(Logger):
                     self.logger.info(f"disconnecting from {iface.server}. too many connected "
                                      f"servers already in bucket {iface.bucket_based_on_ipaddress()}")
                     await self._close_interface(iface)
-            if self.proxy is not None:
+            if self.proxy is not None and not self.oneserver:
                 with self.interfaces_lock: interfaces = list(self.interfaces_clean.values())
                 random.shuffle(interfaces)
                 for iface in interfaces:
