@@ -532,6 +532,11 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         if self.proxy is None:
             return self.interface
 
+        # If "oneserver" mode is in use, then the user doesn't want requests to
+        # leak outside of their main server.
+        if self.oneserver:
+            return self.interface
+
         try:
             # Reuse an existing interface if it already exists for this stream
             # ID.
@@ -1403,7 +1408,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                 server = self._get_next_server_to_try()
                 if server:
                     await self.taskgroup.spawn(self._run_new_interface(server))
-            if self.proxy is not None:
+            if self.proxy is not None and not self.oneserver:
                 for i in range(self.num_server - len(self.interfaces_clean) - len(self._connecting_clean)):
                     # FIXME this should try to honour "healthy spread of connected servers"
                     server = self._get_next_server_to_try(check_clean_pool=True)
@@ -1420,7 +1425,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                     self.logger.info(f"disconnecting from {iface.server}. too many connected "
                                      f"servers already in bucket {iface.bucket_based_on_ipaddress()}")
                     await self._close_interface(iface)
-            if self.proxy is not None:
+            if self.proxy is not None and not self.oneserver:
                 with self.interfaces_lock: interfaces = list(self.interfaces_clean.values())
                 random.shuffle(interfaces)
                 for iface in interfaces:
