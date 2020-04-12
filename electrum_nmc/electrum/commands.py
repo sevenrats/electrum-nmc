@@ -1103,6 +1103,8 @@ class Commands:
 
     @command('n')
     def name_show(self, identifier, options=None, stream_id=None):
+        """Look up the current data for the given name.  Fails if the name
+        doesn't exist."""
         # Handle Namecoin-Core-style options
         if options is not None:
             if "streamID" in options:
