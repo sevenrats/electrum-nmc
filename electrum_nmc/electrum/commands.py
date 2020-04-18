@@ -598,6 +598,8 @@ class Commands:
             name_exists = True
             try:
                 show = self.name_show(identifier, stream_id=stream_id)
+                if isinstance(show, Fault) and show.error()["code"] == -4:
+                    raise NameNotFoundError("Fault")
             except NameNotFoundError:
                 name_exists = False
             if name_exists:
@@ -1021,7 +1023,10 @@ class Commands:
                 try:
                     # TODO: Store a stream ID in the queue, so that we can be
                     # more intelligent than using the txid.
-                    current_height = self.name_show(trigger_name, stream_id="txid: " + txid)["height"]
+                    show = self.name_show(trigger_name, stream_id="txid: " + txid)
+                    if isinstance(show, Fault) and show.error()["code"] == -4:
+                        raise NameNotFoundError("Fault")
+                    current_height = show["height"]
                     current_depth = chain_height - current_height + 1
                 except NameNotFoundError:
                     current_depth = 36000

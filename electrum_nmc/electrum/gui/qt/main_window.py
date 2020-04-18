@@ -3583,7 +3583,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         try:
             result = name_show(identifier_ascii)
             if isinstance(result, Fault) and result.error()["code"] == -4:
-                name_exists = False
+                raise commands.NameNotFoundError("Fault")
         except commands.NameNotFoundError:
             name_exists = False
         except commands.NotSynchronizedException:
