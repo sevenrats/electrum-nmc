@@ -69,7 +69,7 @@ BUCKET_NAME_OF_ONION_SERVERS = 'onion'
 
 # Random authentication is useful when used with Tor for stream isolation.
 class SOCKSRandomAuth(aiorpcx.socks.SOCKSUserAuth):
-    def __getitem__(self, key):
+    def __getattribute__(self, key):
         return secrets.token_hex(32)
 
 
