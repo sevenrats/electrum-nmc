@@ -1,8 +1,8 @@
 {
-    "first_timestamp": 1584310267,
-    "height": 499468,
-    "last_bits": 387146471,
-    "last_chainwork": 3368105285625979519266315936,
-    "last_hash": "28b6a01af4d8505ada4b28f6d95cfde6a9bb3f4c3fc556acc4f728548231432b",
-    "merkle_root": "4f95fb69f9ea24f96a61d948050034dde9ccabae019c2fafd554b27309d907ad"
+    "first_timestamp": 1596445637,
+    "height": 518353,
+    "last_bits": 387111737,
+    "last_chainwork": 4546820646585446597056942848,
+    "last_hash": "c419b67ab80ecdf97d612eeff831e987702d6b6f829de3f7b253d61ab638a09d",
+    "merkle_root": "476a138d228b66a094c20d5bbaea3230ea60201ba16af81500c5f368b06dc48b"
 }
