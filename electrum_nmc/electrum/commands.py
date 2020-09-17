@@ -1481,6 +1481,9 @@ def add_global_options(parser):
     group.add_argument("--testnet", action="store_true", dest="testnet", default=False, help="Use Testnet")
     group.add_argument("--regtest", action="store_true", dest="regtest", default=False, help="Use Regtest")
     group.add_argument("--simnet", action="store_true", dest="simnet", default=False, help="Use Simnet")
+    group.add_argument("--rpcpassword", dest="rpcpassword", default=argparse.SUPPRESS, help="RPC password")
+    group.add_argument("--rpcuser", dest="rpcuser", default=argparse.SUPPRESS, help="RPC user")
+    group.add_argument("--rpcport", dest="rpcport", type=int, default=argparse.SUPPRESS, help="RPC port")
 
 def get_parser():
     # create main parser
