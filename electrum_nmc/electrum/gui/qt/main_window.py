@@ -1350,6 +1350,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         from .paytoedit import PayToEdit
         self.amount_e = BTCAmountEdit(self.get_decimal_point)
         self.payto_e = PayToEdit(self)
+        self.payto_e.addPasteButton(self.app)
         msg = _('Recipient of the funds.') + '\n\n'\
               + _('You may enter a Namecoin address, a label from your list of contacts (a list of completions will be proposed), or an alias (email-like address that forwards to a Namecoin address)')
         payto_label = HelpLabel(_('Pay to'), msg)
