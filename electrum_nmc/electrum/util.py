@@ -1379,6 +1379,15 @@ class NetworkRetryManager(Generic[_NetAddrType]):
         self._last_tried_addr.clear()
 
 
+# Random authentication is useful when used with Tor for stream isolation.
+class SOCKSRandomAuth(aiorpcx.socks.SOCKSUserAuth):
+    def __getattribute__(self, key):
+        return secrets.token_hex(32)
+
+
+SOCKSRandomAuth.__new__.__defaults__ = (None, None)
+
+
 class MySocksProxy(aiorpcx.SOCKSProxy):
 
     async def open_connection(self, host=None, port=None, **kwargs):
@@ -1396,7 +1405,7 @@ class MySocksProxy(aiorpcx.SOCKSProxy):
             return None
         username, pw, isolate = proxy.get('user'), proxy.get('password'), proxy.get('isolate')
         if isolate:
-            auth = aiorpcx.socks.SOCKSRandomAuth()
+            auth = SOCKSRandomAuth()
         elif not username or not pw:
             auth = None
         else:
