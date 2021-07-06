@@ -24,8 +24,14 @@ export GCC_STRIP_BINARIES="1"
 export CONTRIB="$here/.."
 export PROJECT_ROOT="$CONTRIB/.."
 export CACHEDIR="$here/.cache/$WIN_ARCH"
-export PIP_CACHE_DIR="$CACHEDIR/pip_cache"
+export PIP_CACHE_DIR="$CACHEDIR/wine_pip_cache"
+export WINE_PIP_CACHE_DIR="c:/electrum/contrib/build-wine/.cache/$WIN_ARCH/wine_pip_cache"
 export DLL_TARGET_DIR="$CACHEDIR/dlls"
+
+export WINEPREFIX="/opt/wine64"
+export WINEDEBUG=-all
+export WINE_PYHOME="c:/python3"
+export WINE_PYTHON="wine $WINE_PYHOME/python.exe -OO -B"
 
 . "$CONTRIB"/build_tools_util.sh
 
@@ -53,7 +59,7 @@ else
     "$CONTRIB"/make_libusb.sh || fail "Could not build libusb"
 fi
 
-$here/prepare-wine.sh || fail "prepare-wine failed"
+"$here/prepare-wine.sh" || fail "prepare-wine failed"
 
 info "Resetting modification time in C:\Python..."
 # (Because of some bugs in pyinstaller)
@@ -62,6 +68,6 @@ find -exec touch -d '2000-11-11T11:11:11+00:00' {} +
 popd
 ls -l /opt/wine64/drive_c/python*
 
-$here/build-electrum-git.sh || fail "build-electrum-git failed"
+"$here/build-electrum-git.sh" || fail "build-electrum-git failed"
 
 info "Done."
