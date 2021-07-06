@@ -39,6 +39,8 @@ contrib/android_debug.keystore
 contrib/android/android_debug.keystore
 contrib/secp256k1/
 contrib/zbar/
+contrib/libusb/
+contrib/osx/build-venv/
 
 # shared objects
 electrum_nmc/electrum/*.so
