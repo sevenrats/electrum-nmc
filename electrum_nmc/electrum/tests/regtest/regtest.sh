@@ -356,6 +356,22 @@ if [[ $1 == "watchtower" ]]; then
     printf "\n"
 fi
 
+if [[ $1 == "unixsockets" ]]; then
+    # This looks different because it has to run the entire daemon
+    # Test domain socket behavior
+    ./run_electrum --regtest daemon -d --rpcsock=unix # Start daemon with unix domain socket
+    ./run_electrum --regtest stop # Errors if it can't connect
+    # Test custom socket path
+    f=$(mktemp --dry-run)
+    ./run_electrum --regtest daemon -d --rpcsock=unix --rpcsockpath=$f
+    [ -S $f ] # filename exists and is socket
+    ./run_electrum --regtest stop
+    rm $f # clean up
+    # Test for regressions in the ordinary TCP functionality.
+    ./run_electrum --regtest daemon -d --rpcsock=tcp
+    ./run_electrum --regtest stop
+fi
+
 function name_new_broadcast()
 {
     user=$1
