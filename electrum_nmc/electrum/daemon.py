@@ -35,6 +35,7 @@ from collections import defaultdict
 import concurrent
 from concurrent import futures
 import json
+import socket
 
 import aiohttp
 from aiohttp import web, client_exceptions
@@ -63,7 +64,12 @@ class DaemonNotRunning(Exception):
 def get_rpcsock_defaultpath(config: SimpleConfig):
     return os.path.join(config.path, 'daemon_rpc_socket')
 
-def get_rpcsock_default_type(osname):
+def get_rpcsock_default_type():
+    # Use unix domain sockets when available,
+    # with the extra paranoia that in case windows "implements" them,
+    # we want to test it before making it the default there.
+    if hasattr(socket, 'AF_UNIX') and sys.platform != 'win32':
+        return 'unix'
     return 'tcp'
 
 def get_lockfile(config: SimpleConfig):
@@ -248,7 +254,7 @@ class CommandsServer(AuthenticatedServer):
         self.fd = fd
         self.config = daemon.config
         sockettype = self.config.get('rpcsock', 'auto')
-        self.socktype = sockettype if sockettype != 'auto' else get_rpcsock_default_type(os.name)
+        self.socktype = sockettype if sockettype != 'auto' else get_rpcsock_default_type()
         self.sockpath = self.config.get('rpcsockpath', get_rpcsock_defaultpath(self.config))
         self.host = self.config.get('rpchost', '127.0.0.1')
         self.port = self.config.get('rpcport', 0)
