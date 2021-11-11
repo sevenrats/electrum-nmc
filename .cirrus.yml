@@ -193,7 +193,8 @@ task:
     cpu: 2
     memory: 1G
   build_script:
-    - ./contrib/build-linux/appimage/make_appimage.sh
+    #- ./contrib/build-linux/appimage/make_appimage.sh
+    - ./contrib/build-linux/appimage/build.sh
   binaries_artifacts:
     path: "dist/*"
 
