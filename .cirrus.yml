@@ -168,7 +168,7 @@ task:
   build_script:
     - ./contrib/android/make_apk
   binaries_artifacts:
-    path: "dist/*"
+    path: "bin/*"
 
 task:
   name: MacOS build
