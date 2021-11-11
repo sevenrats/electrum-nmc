@@ -204,7 +204,8 @@ task:
     cpu: 1
     memory: 1G
   build_script:
-    - ./contrib/build-linux/sdist/make_sdist.sh
+    #- ./contrib/build-linux/sdist/make_sdist.sh
+    - ./contrib/build-linux/sdist/build.sh
   binaries_artifacts:
     path: "dist/*"
 
