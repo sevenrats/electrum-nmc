@@ -970,7 +970,7 @@ class Commands:
                                    password=password,
                                    locktime=locktime,
                                    allow_existing=allow_existing,
-                                   stream_id=stream_id,,
+                                   stream_id=stream_id,
                                    wallet=wallet)
         new_txid = new_result["txid"]
         new_rand = new_result["rand"]
