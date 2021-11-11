@@ -1419,7 +1419,7 @@ class Commands:
         if error_request_failed is not None:
             raise error_request_failed
 
-    def name_show_single_try(self, identifier, stream_id=None, wallet: Abstract_Wallet = None):
+    async def name_show_single_try(self, identifier, stream_id=None, wallet: Abstract_Wallet = None):
         # TODO: support non-ASCII encodings
         identifier_bytes = identifier.encode("ascii")
         sh = name_identifier_to_scripthash(identifier_bytes)
