@@ -157,7 +157,7 @@ task:
   binaries_artifacts:
     path: "contrib/build-wine/dist/*"
   env:
-    CIRRUS_WORKING_DIR: /opt/wine64/drive_c/electrum
+    CIRRUS_WORKING_DIR: /opt/wine64/drive_c/electrum-nmc
 
 task:
   name: Android build
