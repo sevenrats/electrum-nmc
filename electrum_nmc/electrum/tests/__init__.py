@@ -3,6 +3,11 @@ import threading
 import tempfile
 import shutil
 
+# Namecoin import aliasing
+import os
+import sys
+sys.path = [os.path.join(p, 'electrum_nmc') for p in sys.path] + sys.path
+
 from electrum import constants
 
 
