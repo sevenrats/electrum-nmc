@@ -221,3 +221,12 @@ task:
   check_script:
     - ./contrib/deterministic-build/check_submodules.sh
   only_if: $CIRRUS_TAG != ''
+
+task:
+  name: Rebranding check
+  container:
+    image: python:3.7
+    cpu: 1
+    memory: 1G
+  check_script:
+    - ./contrib/check_nmc_rebranding
