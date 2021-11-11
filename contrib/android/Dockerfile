@@ -102,7 +102,6 @@ RUN add-apt-repository ppa:kivy-team/kivy \
     && apt -y install -qq --no-install-recommends python3-kivy \
     && apt -y autoremove \
     && apt -y clean
-RUN python3 -m pip install image
 
 # build dependencies
 # https://buildozer.readthedocs.io/en/latest/installation.html#android-on-ubuntu-16-04-64bit
@@ -115,6 +114,8 @@ RUN dpkg --add-architecture i386 \
         zip zlib1g-dev zlib1g:i386 \
     && apt -y autoremove \
     && apt -y clean
+
+RUN python3 -m pip install image
 
 # specific recipes dependencies (e.g. libffi requires autoreconf binary)
 RUN apt -y update -qq \
