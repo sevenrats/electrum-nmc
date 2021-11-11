@@ -1406,7 +1406,7 @@ class Commands:
         # improves resilience against censorship attacks.
         for i in range(3):
             try:
-                return self.name_show_single_try(identifier, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id)
+                return self.name_show_single_try(identifier, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id, wallet=wallet)
             except NameNotFoundError as e:
                 if error_not_found is None:
                     error_not_found = e
@@ -1419,7 +1419,7 @@ class Commands:
         if error_request_failed is not None:
             raise error_request_failed
 
-    def name_show_single_try(self, identifier, stream_id=None):
+    def name_show_single_try(self, identifier, stream_id=None, wallet: Abstract_Wallet = None):
         # TODO: support non-ASCII encodings
         identifier_bytes = identifier.encode("ascii")
         sh = name_identifier_to_scripthash(identifier_bytes)
