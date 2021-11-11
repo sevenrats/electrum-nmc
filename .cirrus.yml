@@ -105,12 +105,12 @@ task:
     - tar -xaf $BITCOIND_PATH || (rm -f /tmp/bitcoind/* && curl --output $BITCOIND_PATH $BITCOIND_URL && tar -xaf $BITCOIND_PATH)
     - cp -a bitcoin-$BITCOIND_VERSION/* /usr/
   bitcoind_service_background_script:
-    - electrum/tests/regtest/run_bitcoind.sh
+    - electrum_nmc/electrum/tests/regtest/run_bitcoind.sh
   electrumx_service_background_script:
-    - electrum/tests/regtest/run_electrumx.sh
+    - electrum_nmc/electrum/tests/regtest/run_electrumx.sh
   regtest_script:
     - sleep 10s
-    - python3 -m unittest electrum/tests/regtest.py
+    - python3 -m unittest electrum_nmc/electrum/tests/regtest.py
   env:
     ELECTRUM_IMAGE: python:3.7
     ELECTRUM_REQUIREMENTS: contrib/requirements/requirements-travis.txt
