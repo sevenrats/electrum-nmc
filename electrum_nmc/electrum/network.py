@@ -863,7 +863,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
     @ignore_exceptions  # do not kill main_taskgroup
     @log_exceptions
     async def _run_new_interface_clean(self, server):
-        interface = InterfaceSecondary(self, server, self.proxy)
+        interface = InterfaceSecondary(network=self, server=server, proxy=self.proxy)
         # note: using longer timeouts here as DNS can sometimes be slow!
         timeout = self.get_network_timeout_seconds(NetworkTimeout.Generic)
         try:
