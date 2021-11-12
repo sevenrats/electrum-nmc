@@ -863,6 +863,12 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
     @ignore_exceptions  # do not kill main_taskgroup
     @log_exceptions
     async def _run_new_interface_clean(self, server):
+        if server in self.interfaces_clean or server in self._connecting_clean:
+            return
+        self._connecting_clean.add(server)
+        # TODO: Audit whether _trying_addr_now could be a fingerprinting hazard.
+        self._trying_addr_now(server)
+
         interface = InterfaceSecondary(network=self, server=server, proxy=self.proxy)
         # note: using longer timeouts here as DNS can sometimes be slow!
         timeout = self.get_network_timeout_seconds(NetworkTimeout.Generic)
