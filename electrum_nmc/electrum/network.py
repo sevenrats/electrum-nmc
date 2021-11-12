@@ -887,7 +887,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
             except KeyError: pass
 
         self._add_recent_server(server)
-        self.trigger_callback('network_updated')
+        util.trigger_callback('network_updated')
 
     def check_interface_against_healthy_spread_of_connected_servers(self, iface_to_check: Interface, check_clean_pool=False) -> bool:
         # main interface is exempt. this makes switching servers easier
