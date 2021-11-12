@@ -48,7 +48,7 @@ from .util import log_exceptions, ignore_exceptions, randrange
 from .wallet import Wallet, Abstract_Wallet
 from .storage import WalletStorage
 from .wallet_db import WalletDB
-from .commands import known_commands, Commands
+from .commands import known_commands, Commands, NameNotFoundError
 from .simple_config import SimpleConfig
 from .exchange_rate import FxThread
 from .logging import get_logger, Logger
@@ -202,9 +202,18 @@ class AuthenticatedServer(Logger):
                 response['result'] = await f(**params)
             else:
                 response['result'] = await f(*params)
+        except NameNotFoundError as e:
+            self.logger.exception("internal NameNotFoundError while executing RPC")
+            response['error'] = {
+                'code': -4,
+                'message': str(e)
+            }
         except BaseException as e:
             self.logger.exception("internal error while executing RPC")
-            response['error'] = str(e)
+            response['error'] = {
+                'code': 1,
+                'message': str(e)
+            }
         return web.json_response(response)
 
 
