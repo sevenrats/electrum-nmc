@@ -98,12 +98,11 @@ task:
     - apt-get -y install libsecp256k1-0 curl jq bc
     - pip3 install .[tests]
     - pip3 install electrumx
-    - "BITCOIND_VERSION=$(curl https://bitcoincore.org/en/download/ | grep -E -i --only-matching 'Latest version: [0-9\\.]+' | grep -E --only-matching '[0-9\\.]+')"
-    - BITCOIND_FILENAME=bitcoin-$BITCOIND_VERSION-x86_64-linux-gnu.tar.gz
+    - BITCOIND_URL=$(curl https://www.namecoin.org/download/ | grep x86_64-linux-gnu.tar.gz | grep -v 0.13.99 | grep --only-matching https://.*.tar.gz)
+    - BITCOIND_FILENAME=$(echo $BITCOIND_URL | grep -E --only-matching 'namecoin-nc.*.tar.gz')
     - BITCOIND_PATH=/tmp/bitcoind/$BITCOIND_FILENAME
-    - BITCOIND_URL=https://bitcoincore.org/bin/bitcoin-core-$BITCOIND_VERSION/$BITCOIND_FILENAME
     - tar -xaf $BITCOIND_PATH || (rm -f /tmp/bitcoind/* && curl --output $BITCOIND_PATH $BITCOIND_URL && tar -xaf $BITCOIND_PATH)
-    - cp -a bitcoin-$BITCOIND_VERSION/* /usr/
+    - cp -a namecoin-*/* /usr/
   bitcoind_service_background_script:
     - electrum_nmc/electrum/tests/regtest/run_bitcoind.sh
   electrumx_service_background_script:
