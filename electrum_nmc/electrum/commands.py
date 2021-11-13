@@ -1409,7 +1409,7 @@ class Commands:
         # improves resilience against censorship attacks.
         for i in range(3):
             try:
-                return self.name_show_single_try(identifier, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id, wallet=wallet)
+                return await self.name_show_single_try(identifier, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id, wallet=wallet)
             except NotSynchronizedException as e:
                 # If the chain isn't synced, asking another server won't help.
                 raise e
