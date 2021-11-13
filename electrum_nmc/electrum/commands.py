@@ -1501,9 +1501,8 @@ class Commands:
 
         # The height is now verified to be safe.
 
-        gettx = await self.gettransaction(txid, verify=True, height=height, stream_id=stream_id, wallet=wallet)
-        raw = gettx['hex']
-        tx = Transaction(raw)
+        hextx = await self.gettransaction(txid, verify=True, height=height, stream_id=stream_id, wallet=wallet)
+        tx = Transaction(hextx)
 
         # the tx is now verified to come from a safe height in the blockchain
 
