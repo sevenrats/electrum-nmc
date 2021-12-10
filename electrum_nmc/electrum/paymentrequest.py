@@ -51,8 +51,7 @@ _logger = get_logger(__name__)
 try:
     from . import paymentrequest_pb2 as pb2
 except ImportError:
-    # sudo apt-get install protobuf-compiler
-    _logger.error("Error: could not find paymentrequest_pb2.py. This is fine if BIP70 is unneeded. If you're using BIP70, create it with 'protoc --proto_path=electrum_nmc/electrum/ --python_out=electrum_nmc/electrum/ electrum_nmc/electrum/paymentrequest.proto'")
+    _logger.error("Error: could not find paymentrequest_pb2.py. This is fine if BIP70 is unneeded. If you're using BIP70, create it with 'contrib/generate_payreqpb2.sh'")
 
 REQUEST_HEADERS = {'Accept': 'application/namecoin-paymentrequest', 'User-Agent': 'Electrum-NMC'}
 ACK_HEADERS = {'Content-Type':'application/namecoin-payment','Accept':'application/namecoin-paymentack','User-Agent':'Electrum-NMC'}
