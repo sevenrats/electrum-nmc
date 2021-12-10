@@ -31,7 +31,9 @@ info "Installing pinned requirements."
 python3 -m pip install --no-dependencies --no-warn-script-location -r "$CONTRIB"/deterministic-build/requirements-build-sdist.txt
 
 
-"$CONTRIB"/make_packages || fail "make_packages failed"
+if ([ "$OMIT_UNCLEAN_FILES" != 1 ]); then
+  "$CONTRIB"/make_packages || fail "make_packages failed"
+fi
 
 "$CONTRIB_SDIST"/make_tgz || fail "make_tgz failed"
 
