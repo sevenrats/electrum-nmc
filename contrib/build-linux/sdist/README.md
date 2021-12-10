@@ -46,6 +46,7 @@ folder.
         -v $PWD:/opt/electrum-nmc \
         --rm \
         --workdir /opt/electrum-nmc/contrib/build-linux/sdist \
+        --env OMIT_UNCLEAN_FILES \
         electrum-nmc-sdist-builder-img \
         ./build.sh
     ```
