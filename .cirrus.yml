@@ -198,7 +198,6 @@ task:
     path: "dist/*"
 
 task:
-  name: tarball build
   container:
     dockerfile: contrib/build-linux/sdist/Dockerfile
     cpu: 1
@@ -208,6 +207,11 @@ task:
     - ./contrib/build-linux/sdist/build.sh
   binaries_artifacts:
     path: "dist/*"
+  matrix:
+    - name: tarball build
+    - name: source-only tarball build
+      env:
+        OMIT_UNCLEAN_FILES: 1
 
 task:
   name: Submodules
