@@ -113,6 +113,6 @@ info "Building PyInstaller."
     fi
 ) || fail "PyInstaller build failed"
 info "Installing PyInstaller."
-$PYTHON -m pip install --no-dependencies --no-warn-script-location ./pyinstaller
+$PYTHON -m pip install --no-dependencies --no-build-isolation --no-warn-script-location ./pyinstaller
 
 info "Wine is configured."
