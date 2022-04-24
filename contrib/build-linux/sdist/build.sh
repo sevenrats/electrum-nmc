@@ -9,10 +9,12 @@ DISTDIR="$PROJECT_ROOT/dist"
 
 . "$CONTRIB"/build_tools_util.sh
 
-info "Compiling Namecoin-Qt forms..."
-pushd "$PROJECT_ROOT"
-./contrib/make_qt_forms
-popd
+if ([ "$OMIT_UNCLEAN_FILES" != 1 ]); then
+  info "Compiling Namecoin-Qt forms..."
+  pushd "$PROJECT_ROOT"
+  ./contrib/make_qt_forms
+  popd
+fi
 
 info "Copying www root..."
 pushd "$PROJECT_ROOT"
