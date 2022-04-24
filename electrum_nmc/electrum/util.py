@@ -713,6 +713,8 @@ def time_difference(distance_in_time, include_seconds):
 mainnet_block_explorers = {
     'Cyphrs.com': ('https://namecoin.cyphrs.com/',
                         {'tx': 'tx/', 'addr': 'address/'}),
+    'Namebrow.se (non-libre)': ('https://www.namebrow.se/',
+                        {'tx': 'tx/', 'addr': 'address/'}),
     'Namecha.in (non-libre; wiretapped by Cloudflare; discriminates against Tor)': ('https://namecha.in/',
                         {'tx': 'tx/', 'addr': 'address/'}),
     'Bchain.info (non-libre; no name support)': ('https://bchain.info/NMC/',
