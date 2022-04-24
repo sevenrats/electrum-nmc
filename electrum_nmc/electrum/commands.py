@@ -1396,6 +1396,9 @@ class Commands:
 
     @command('n')
     async def name_show(self, identifier, wallet: Abstract_Wallet = None):
+        """Look up the current data for the given name.  Fails if the name
+        doesn't exist.
+        """
         # TODO: support non-ASCII encodings
         identifier_bytes = identifier.encode("ascii")
         sh = name_identifier_to_scripthash(identifier_bytes)
