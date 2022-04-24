@@ -8,7 +8,7 @@ ROOT_FOLDER="$CONTRIB"/..
 PACKAGES="$ROOT_FOLDER"/packages/
 LOCALE="$ROOT_FOLDER"/electrum_nmc/electrum/locale
 
-if [ ! -d "$PACKAGES" ]; then
+if [ ! -d "$PACKAGES" ] && [ "$OMIT_UNCLEAN_FILES" != 1 ]; then
   echo "Run make_packages first!"
   exit 1
 fi
