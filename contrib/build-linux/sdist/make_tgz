@@ -28,7 +28,7 @@ git submodule update --init
 
 if ([ "$OMIT_UNCLEAN_FILES" = 1 ]); then
     # FIXME side-effecting repo... though in practice, this script probably runs in fresh_clone
-    rm -f "$ROOT_FOLDER/electrum/paymentrequest_pb2.py"
+    rm -f "$ROOT_FOLDER/electrum_nmc/electrum/paymentrequest_pb2.py"
 fi
 
 (
