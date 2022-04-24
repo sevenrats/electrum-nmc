@@ -83,6 +83,10 @@ info "Installing build dependencies"
 python3 -m pip install --no-dependencies --no-warn-script-location -Ir ./contrib/deterministic-build/requirements-build-mac.txt \
     || fail "Could not install build dependencies"
 
+info "Installing PyInstaller"
+python3 -m pip install --no-dependencies --no-build-isolation -I pyinstaller==4.0 \
+    || fail "Could not install build dependencies"
+
 info "Using these versions for building $PACKAGE:"
 sw_vers
 python3 --version
