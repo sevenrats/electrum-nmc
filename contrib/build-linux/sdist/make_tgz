@@ -18,8 +18,14 @@ git submodule update --init
 (
     rm -rf "$LOCALE"
     cp -r "$CONTRIB/deterministic-build/electrum-locale/locale/" "$LOCALE/"
-    "$CONTRIB/build_locale.sh" "$LOCALE"
+    if ([ "$OMIT_UNCLEAN_FILES" != 1 ]); then
+      "$CONTRIB/build_locale.sh" "$LOCALE"
+    fi
 )
+
+if ([ "$OMIT_UNCLEAN_FILES" = 1 ]); then
+  rm "$ROOT_FOLDER/electrum/paymentrequest_pb2.py"
+fi
 
 (
     cd "$ROOT_FOLDER"
