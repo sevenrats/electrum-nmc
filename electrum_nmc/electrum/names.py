@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Electrum-NMC - lightweight Namecoin client
-# Copyright (C) 2018 Namecoin Developers
+# Copyright (C) 2018-2022 Namecoin Developers
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -558,7 +558,7 @@ def get_domain_records(domain, value):
     if "alias" in value:
         new_records, value["alias"] = get_domain_records_cname(domain, value["alias"])
         records.extend(new_records)
-        if value["alias"] == None:
+        if value["alias"] is None:
             del value["alias"]
 
     if "ns" in value:
@@ -641,13 +641,13 @@ def get_domain_records_address(domain, value):
     if "freenet" in value:
         new_records, value["freenet"] = get_domain_records_address_freenet(domain, value["freenet"])
         records.extend(new_records)
-        if value["freenet"] == None:
+        if value["freenet"] is None:
             del value["freenet"]
 
     if "zeronet" in value:
         new_records, value["zeronet"] = get_domain_records_address_zeronet(domain, value["zeronet"])
         records.extend(new_records)
-        if value["zeronet"] == None:
+        if value["zeronet"] is None:
             del value["zeronet"]
 
     return records, value
