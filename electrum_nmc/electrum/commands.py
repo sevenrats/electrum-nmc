@@ -45,7 +45,7 @@ from . import bitcoin
 from .bitcoin import is_address,  hash_160, COIN
 from .bip32 import BIP32Node
 from .i18n import _
-from .names import build_name_commitment, build_name_new, format_name_identifier, name_expiration_datetime_estimate, name_identifier_to_scripthash, name_semi_expires_in, OP_NAME_NEW, OP_NAME_FIRSTUPDATE, OP_NAME_UPDATE, validate_value_length
+from .names import build_name_commitment, build_name_new, Encoding, format_name_identifier, name_expiration_datetime_estimate, name_from_str, name_identifier_to_scripthash, name_semi_expires_in, name_to_str, OP_NAME_NEW, OP_NAME_FIRSTUPDATE, OP_NAME_UPDATE, validate_commitment_length, validate_identifier_length, validate_salt_length, validate_value_length
 from .verifier import verify_tx_is_in_block
 from .transaction import (Transaction, multisig_script, TxOutput, PartialTransaction, PartialTxOutput,
                           tx_from_any, PartialTxInput, TxOutpoint)
@@ -384,6 +384,9 @@ class Commands:
         """List unspent name outputs. Returns the list of unspent name_anyupdate
         outputs in your wallet."""
 
+        name_encoding = Encoding(name_encoding)
+        value_encoding = Encoding(value_encoding)
+
         coins = await self.listunspent(wallet=wallet)
 
         result = []
@@ -397,21 +400,11 @@ class Commands:
             if "name" not in name_op:
                 continue
 
-            if name_encoding == "hex":
-                name = name_op["name"]
-            elif name_encoding == "ascii":
-                name_bytes = bfh(name_op["name"])
-                name = name_bytes.decode("ascii")
-            else:
-                raise Exception('Unsupported name_encoding "{}"'.format(name_encoding))
+            name_bytes = bfh(name_op["name"])
+            name = name_to_str(name_bytes, name_encoding)
 
-            if value_encoding == "hex":
-                value = name_op["value"]
-            elif value_encoding == "ascii":
-                value_bytes = bfh(name_op["value"])
-                value = value_bytes.decode("ascii")
-            else:
-                raise Exception('Unsupported value_encoding "{}"'.format(value_encoding))
+            value_bytes = bfh(name_op["value"])
+            value = name_to_str(value_bytes, value_encoding)
 
             # Skip this item if it doesn't match the requested identifier
             if identifier is not None:
@@ -436,9 +429,9 @@ class Commands:
 
             result_item = {
                 "name": name,
-                "name_encoding": name_encoding,
+                "name_encoding": name_encoding.value,
                 "value": value,
-                "value_encoding": value_encoding,
+                "value_encoding": value_encoding.value,
                 "txid": txid,
                 "vout": vout,
                 "address": address,
@@ -753,9 +746,11 @@ class Commands:
         return tx.serialize()
 
     @command('wp')
-    async def name_new(self, identifier=None, commitment=None, destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, wallet: Abstract_Wallet = None):
+    async def name_new(self, identifier=None, name_encoding='ascii', commitment=None, destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, wallet: Abstract_Wallet = None):
         """Create a name pre-registration transaction. """
         self.nocheck = nocheck
+
+        name_encoding = Encoding(name_encoding)
 
         if identifier is None and commitment is None:
             raise Exception("Must specify identifier or commitment")
@@ -766,7 +761,7 @@ class Commands:
         if identifier is not None and not allow_existing:
             name_exists = True
             try:
-                show = await self.name_show(identifier)
+                show = await self.name_show(identifier, name_encoding=name_encoding.value, value_encoding='hex')
             except NameNotFoundError:
                 name_exists = False
             except NameSemiExpiredError:
@@ -780,12 +775,13 @@ class Commands:
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
-        # TODO: support non-ASCII encodings
-        # TODO: enforce length limit on identifier
         if identifier is not None:
-            identifier_bytes = identifier.encode("ascii")
+            identifier_bytes = name_from_str(identifier, name_encoding)
+            validate_identifier_length(identifier_bytes)
             memo = "Pre-Registration: " + format_name_identifier(identifier_bytes)
         else:
+            commitment_bytes = bfh(commitment)
+            validate_commitment_length(commitment_bytes)
             memo = "Pre-Registration: " + commitment
 
         if destination is None:
@@ -797,7 +793,7 @@ class Commands:
             salt_hex = bh2u(salt)
             commitment = bh2u(name_op["commitment"])
         else:
-            name_op, salt = {"op": OP_NAME_NEW, "commitment": bfh(commitment)}, None
+            name_op, salt = {"op": OP_NAME_NEW, "commitment": commitment_bytes}, None
             salt_hex = None
 
         final_outputs = []
@@ -825,20 +821,23 @@ class Commands:
         return {"tx": tx.serialize(), "txid": tx.txid(), "salt": salt_hex, "commitment": commitment}
 
     @command('wp')
-    async def name_firstupdate(self, identifier, salt=None, name_new_txid=None, value="", destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_early=False, wallet: Abstract_Wallet = None):
+    async def name_firstupdate(self, identifier, salt=None, name_new_txid=None, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_early=False, wallet: Abstract_Wallet = None):
         """Create a name registration transaction. """
         self.nocheck = nocheck
+
+        name_encoding = Encoding(name_encoding)
+        value_encoding = Encoding(value_encoding)
+
         tx_fee = satoshis(fee)
         domain_addr = from_addr.split(',') if from_addr else None
         domain_coins = from_coins.split(',') if from_coins else None
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
-        # TODO: support non-ASCII encodings
-        # TODO: enforce length limits on identifier and value
-        # TODO: enforce exact length of salt
-        identifier_bytes = identifier.encode("ascii")
-        value_bytes = value.encode("ascii")
+        identifier_bytes = name_from_str(identifier, name_encoding)
+        validate_identifier_length(identifier_bytes)
+        value_bytes = name_from_str(value, value_encoding)
+        validate_value_length(value_bytes)
 
         if salt is None:
             if name_new_txid is None:
@@ -872,6 +871,7 @@ class Commands:
                 raise NamePreRegistrationNotFound("name_new input with matching commitment not found")
         else:
             salt_bytes = bfh(salt)
+        validate_salt_length(salt_bytes)
 
         if not allow_early:
             conf = wallet.get_tx_height(name_new_txid).conf
@@ -912,10 +912,14 @@ class Commands:
         return tx.serialize()
 
     @command('wpn')
-    async def name_update(self, identifier, value=None, destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_update(self, identifier, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Create a name update transaction. """
 
         self.nocheck = nocheck
+
+        name_encoding = Encoding(name_encoding)
+        value_encoding = Encoding(value_encoding)
+
         tx_fee = satoshis(fee)
         domain_addr = from_addr.split(',') if from_addr else None
         domain_coins = from_coins.split(',') if from_coins else None
@@ -926,7 +930,7 @@ class Commands:
         # value.
         renew = False
         if value is None:
-            list_results = await self.name_list(identifier, wallet=wallet)
+            list_results = await self.name_list(identifier, name_encoding=name_encoding.value, value_encoding=value_encoding.value, wallet=wallet)
             list_results = list_results[0]
 
             # This check is in place to prevent an attack where an ElectrumX
@@ -941,10 +945,10 @@ class Commands:
             value = list_results["value"]
             renew = True
 
-        # TODO: support non-ASCII encodings
-        # TODO: enforce length limits on identifier and value
-        identifier_bytes = identifier.encode("ascii")
-        value_bytes = value.encode("ascii")
+        identifier_bytes = name_from_str(identifier, name_encoding)
+        validate_identifier_length(identifier_bytes)
+        value_bytes = name_from_str(value, value_encoding)
+        validate_value_length(value_bytes)
         name_op = {"op": OP_NAME_UPDATE, "name": identifier_bytes, "value": value_bytes}
         memo = ("Renew: " if renew else "Update: ") + format_name_identifier(identifier_bytes)
 
@@ -978,7 +982,7 @@ class Commands:
         return tx.serialize()
 
     @command('wpn')
-    async def name_autoregister(self, identifier, value="", destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, wallet: Abstract_Wallet = None):
+    async def name_autoregister(self, identifier, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, wallet: Abstract_Wallet = None):
         """Create a name pre-registration transaction, broadcast it, create a corresponding name registration transaction, and queue it. """
 
         # Validate the value before we try to pre-register the name.  That way,
@@ -988,6 +992,7 @@ class Commands:
 
         # TODO: Don't hardcode the 0.005 name_firstupdate fee
         new_result = await self.name_new(identifier,
+                                   name_encoding=name_encoding,
                                    amount=amount+0.005,
                                    fee=fee,
                                    feerate=feerate,
@@ -1023,6 +1028,8 @@ class Commands:
                                                        new_salt,
                                                        new_txid,
                                                        value=value,
+                                                       name_encoding=name_encoding,
+                                                       value_encoding=value_encoding,
                                                        destination=destination,
                                                        amount=amount,
                                                        fee=fee,
@@ -1263,7 +1270,7 @@ class Commands:
         return tx.txid()
 
     @command('w')
-    async def queuetransaction(self, tx, trigger_depth, trigger_txid = None, trigger_name = None, wallet: Abstract_Wallet = None):
+    async def queuetransaction(self, tx, trigger_depth, trigger_txid = None, trigger_name = None, name_encoding='ascii', wallet: Abstract_Wallet = None):
         """ Queue a transaction for later broadcast """
         if trigger_txid is None and trigger_name is None:
             raise Exception("You must specify exactly one of trigger_txid or trigger_name.")
@@ -1271,11 +1278,10 @@ class Commands:
             raise Exception("You must specify exactly one of trigger_txid or trigger_name.")
 
         txid = Transaction(tx).txid()
-        # TODO: handle non-ASCII trigger_name
         send_when = {
             "txid": trigger_txid,
             "name": trigger_name,
-            "name_encoding": "ascii",
+            "name_encoding": name_encoding,
             "confirmations": trigger_depth,
         }
         queue_item = {
@@ -1299,6 +1305,7 @@ class Commands:
 
             trigger_txid = send_when["txid"]
             trigger_name = send_when["name"]
+            trigger_name_encoding = send_when["name_encoding"]
             trigger_depth = send_when["confirmations"]
 
             chain_height = self.network.get_local_height()
@@ -1306,9 +1313,9 @@ class Commands:
             current_depth = 0
 
             if trigger_name is not None:
-                # TODO: handle non-ASCII trigger_name
                 try:
-                    current_height = await self.name_show(trigger_name)["height"]
+                    show = await self.name_show(trigger_name, name_encoding=trigger_name_encoding, value_encoding='hex')
+                    current_height = show["height"]
                     current_depth = chain_height - current_height + 1
                 except NameNotFoundError:
                     current_depth = constants.net.NAME_EXPIRATION
@@ -1398,12 +1405,15 @@ class Commands:
         return self.config.fee_per_kb(dyn=dyn, mempool=mempool, fee_level=fee_level)
 
     @command('n')
-    async def name_show(self, identifier, wallet: Abstract_Wallet = None):
+    async def name_show(self, identifier, name_encoding='ascii', value_encoding='ascii', wallet: Abstract_Wallet = None):
         """Look up the current data for the given name.  Fails if the name
         doesn't exist.
         """
-        # TODO: support non-ASCII encodings
-        identifier_bytes = identifier.encode("ascii")
+
+        name_encoding = Encoding(name_encoding)
+        value_encoding = Encoding(value_encoding)
+
+        identifier_bytes = name_from_str(identifier, name_encoding)
         sh = name_identifier_to_scripthash(identifier_bytes)
 
         txs = await self.network.get_history_for_scripthash(sh)
@@ -1546,10 +1556,10 @@ class Commands:
                         is_mine = wallet.is_mine(o.address)
 
                     return {
-                        "name": o.name_op["name"].decode("ascii"),
-                        "name_encoding": "ascii",
-                        "value": o.name_op["value"].decode("ascii"),
-                        "value_encoding": "ascii",
+                        "name": name_to_str(o.name_op["name"], name_encoding),
+                        "name_encoding": name_encoding.value,
+                        "value": name_to_str(o.name_op["value"], value_encoding),
+                        "value_encoding": value_encoding.value,
                         "txid": txid,
                         "vout": idx,
                         "address": o.address,
@@ -1870,8 +1880,8 @@ command_options = {
     'allow_early': (None, "Allow submitting a name registration while its pre-registration is still pending.  This increases the risk of an attacker stealing your name registration."),
     'identifier':  (None, "The requested name identifier"),
     'value':       (None, "The value to assign to the name"),
-    'name_encoding': (None, "Encoding for the name identifier ('ascii' or 'hex')"),
-    'value_encoding': (None, "Encoding for the name value ('ascii' or 'hex')"),
+    'name_encoding': (None, "Encoding for the name identifier ('ascii', 'utf8', or 'hex')"),
+    'value_encoding': (None, "Encoding for the name value ('ascii', 'utf8', or 'hex')"),
     'commitment':  (None, "Pre-registration commitment (use if you're pre-registering a name for someone else)"),
     'salt':        (None, "Salt for the name pre-registration commitment (returned by name_new; you can usually omit this)"),
     'name_new_txid':(None, "Transaction ID for the name pre-registration (returned by name_new; you can usually omit this)"),
