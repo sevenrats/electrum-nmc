@@ -593,6 +593,7 @@ class Interface(Logger):
         try:
             cp_height = constants.net.max_checkpoint()
             if index * 2016 + size - 1 > cp_height:
+                # This chunk is later than the checkpoint.
                 cp_height = 0
             self._requested_chunks.add(index)
             res = await self.session.send_request('blockchain.block.headers', [index * 2016, size, cp_height])
@@ -604,8 +605,16 @@ class Interface(Logger):
         assert_non_negative_integer(res['count'])
         assert_non_negative_integer(res['max'])
         assert_hex_str(res['hex'])
-        if len(res['hex']) != HEADER_SIZE * 2 * res['count']:
-            raise RequestCorrupted('inconsistent chunk hex and count')
+        # Calculate Bitcoin-expected size
+        expected_hex_size = HEADER_SIZE * 2 * res['count']
+        # AuxPoW headers will cause the hex size to exceed the Bitcoin-expected
+        # size by an unpredictable amount.
+        if len(res['hex']) < expected_hex_size:
+            raise RequestCorrupted('inconsistent chunk hex and count (AuxPoW)')
+        # If this chunk is covered by a checkpoint, then AuxPoW is stripped,
+        # thus we should exactly match the Bitcoin-expected size.
+        if cp_height != 0 and len(res['hex']) != expected_hex_size:
+            raise RequestCorrupted('inconsistent chunk hex and count (non-AuxPoW)')
         if res['count'] != size:
             raise RequestCorrupted(f"expected {size} headers but only got {res['count']}")
         conn = self.blockchain.connect_chunk(index, res['hex'])
