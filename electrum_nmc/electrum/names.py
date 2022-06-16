@@ -23,6 +23,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from enum import Enum
 from typing import Dict, NamedTuple, Optional
 
 from . import constants
@@ -103,35 +104,35 @@ def validate_anyupdate_length(name_op):
     validate_identifier_length(name_op["name"])
     validate_value_length(name_op["value"])
 
-def validate_commitment_length(commitment):
+def validate_commitment_length(commitment: bytes):
     commitment_length_requirement = 20
 
     commitment_length = len(commitment)
     if commitment_length != commitment_length_requirement:
         raise BitcoinException('commitment length {} is not equal to requirement of {}'.format(commitment_length, commitment_length_requirement))
 
-def validate_salt_length(salt):
+def validate_salt_length(salt: bytes):
     salt_length_requirement = 20
 
     salt_length = len(salt)
     if salt_length != salt_length_requirement:
         raise BitcoinException('salt length {} is not equal to requirement of {}'.format(salt_length, salt_length_requirement))
 
-def validate_identifier_length(identifier):
+def validate_identifier_length(identifier: bytes):
     identifier_length_limit = 255
 
     identifier_length = len(identifier)
     if identifier_length > identifier_length_limit:
         raise BitcoinException('identifier length {} exceeds limit of {}'.format(identifier_length, identifier_length_limit))
 
-def validate_value_length(value):
+def validate_value_length(value: bytes):
     value_length_limit = 520
 
     value_length = len(value)
     if value_length > value_length_limit:
         raise BitcoinException('value length {} exceeds limit of {}'.format(value_length, value_length_limit))
 
-def build_name_new(identifier, salt = None, address = None, password = None, wallet = None):
+def build_name_new(identifier: bytes, salt: bytes = None, address: str = None, password: str = None, wallet = None):
     validate_identifier_length(identifier)
 
     if address is not None and wallet is not None:
@@ -156,6 +157,42 @@ def name_identifier_to_scripthash(identifier: bytes) -> str:
     script += '6a' # OP_RETURN
 
     return script_to_scripthash(script)
+
+
+class Encoding(Enum):
+    ASCII = "ascii"
+    UTF8 = "utf8"
+    HEX = "hex"
+
+
+def name_to_str(data: bytes, enc: Encoding) -> str:
+    if enc == Encoding.ASCII:
+        # Python checks for >= 0x80 here
+        result = data.decode("ascii")
+        for c in result:
+            if ord(c) < 0x20:
+                raise UnicodeDecodeError('ascii', data, result.index(c), result.rindex(c)+1, 'Control characters forbidden')
+        return result
+    if enc == Encoding.UTF8:
+        return data.decode("utf-8")
+    if enc == Encoding.HEX:
+        return bh2u(data)
+
+
+def name_from_str(data_str: str, enc: Encoding) -> bytes:
+    if enc == Encoding.ASCII:
+        for c in data_str:
+            if ord(c) < 0x20:
+                raise UnicodeEncodeError('ascii', data_str, data_str.index(c), data_str.rindex(c)+1, 'Control characters forbidden')
+        # Python checks for >= 0x80 here
+        return data_str.encode("ascii")
+    if enc == Encoding.UTF8:
+        return data_str.encode("utf-8")
+    if enc == Encoding.HEX:
+        try:
+            return bfh(data_str)
+        except ValueError as e:
+            raise UnicodeEncodeError('hex', data_str, 0, len(data_str), str(e))
 
 
 def identifier_to_namespace(identifier_bytes: bytes) -> Optional[str]:
@@ -1364,7 +1401,7 @@ import re
 from .bitcoin import push_script, script_to_scripthash
 from .crypto import hash_160
 from .transaction import MalformedBitcoinScript, match_script_against_template, opcodes, OPPushDataGeneric, PartialTransaction, script_GetOp, Transaction
-from .util import bh2u, BitcoinException
+from .util import bh2u, bfh, BitcoinException
 
 OP_NAME_NEW = opcodes.OP_1
 OP_NAME_FIRSTUPDATE = opcodes.OP_2
