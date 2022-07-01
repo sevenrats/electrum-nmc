@@ -197,7 +197,7 @@ class TestCommandsTestnet(TestCaseForTestnet):
             ],
             "outputs": [
                 {
-                    "address": "tb1q4s8z6g5jqzllkgt8a4har94wl8tg0k9m8kv5zd",
+                    "address": frombtc("tb1q4s8z6g5jqzllkgt8a4har94wl8tg0k9m8kv5zd"),
                     "value": 990000
                 }
             ]
