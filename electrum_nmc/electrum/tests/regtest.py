@@ -57,8 +57,8 @@ class TestLightningAB(TestLightning):
     def test_breach_with_unspent_htlc(self):
         self.run_shell(['breach_with_unspent_htlc'])
 
-    def test_breach_with_spent_htlc(self):
-        self.run_shell(['breach_with_spent_htlc'])
+    #def test_breach_with_spent_htlc(self):
+    #    self.run_shell(['breach_with_spent_htlc'])
 
 
 class TestNamecoinABDefaultSeed(TestLightning):
