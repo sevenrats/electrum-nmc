@@ -470,18 +470,18 @@ if [[ $1 == "name_registration" ]]; then
     wait_for_chain_sync "$alice"
     echo "Perform name_new's.  Check for too long names exception."
     #newA = node.name_new ("name-0")
-    newA=$(name_new_broadcast "$alice" "name-0")
+    newA=$(name_new_broadcast "$alice" "--identifier name-0")
     #newAconfl = node.name_new ("name-0")
-    newAconfl=$(name_new_broadcast "$alice" "name-0")
+    newAconfl=$(name_new_broadcast "$alice" "--identifier name-0")
     #addr = node.getnewaddress ()
     addr=$($alice add_request 0 | jq -r .address)
     echo $addr
     #newB = node.name_new ("name-1", {"destAddress": addr})
-    newB=$(name_new_broadcast "$alice" "name-1 --destination $addr")
+    newB=$(name_new_broadcast "$alice" "--identifier name-1 --destination $addr")
     #node.name_new ("x" * 255)
-    name_new_broadcast "$alice" "$(printf %255s | tr ' ' 'x')"
+    name_new_broadcast "$alice" "--identifier $(printf %255s | tr ' ' 'x')"
     #assert_raises_rpc_error (-8, 'name is too long', node.name_new, "x" * 256)
-    assert_raises_error "$alice name_new $(printf %256s | tr ' ' 'x')" "identifier length 256 exceeds limit of 255"
+    assert_raises_error "$alice name_new --identifier $(printf %256s | tr ' ' 'x')" "identifier length 256 exceeds limit of 255"
     #self.generateToOther (5)
     new_blocks 5
     wait_for_chain_sync "$alice"
