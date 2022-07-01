@@ -377,7 +377,7 @@ function name_new_broadcast()
     user=$1
     args=$2
     new_output=$($user name_new $args)
-    new_tx=$(echo $new_output | gojq -r .tx)
+    new_tx=$(echo $new_output | jq -r .tx)
     $user addtransaction $new_tx > /dev/null
     $user broadcast $new_tx > /dev/null
     echo $new_output
@@ -399,8 +399,8 @@ function wait_for_chain_sync()
 
     while true; do
         core_height=$($bitcoin_cli getblockcount)
-        electrumx_height=$($user getinfo | gojq -r .server_height)
-        wallet_height=$($user getinfo | gojq -r .blockchain_height)
+        electrumx_height=$($user getinfo | jq -r .server_height)
+        wallet_height=$($user getinfo | jq -r .blockchain_height)
 
         echo "Core, ElectrumX, Wallet heights: $core_height $electrumx_height $wallet_height"
         if [[ "$core_height" == "$electrumx_height" ]] && [[ "$core_height" == "$wallet_height" ]]; then
@@ -444,7 +444,7 @@ function assert_core_expired()
 
     echo "TODO: Upgrade Namecoin Core version"
     name_result=$($bitcoin_cli name_show $expired_name)
-    name_result_expired=$(echo $name_result | gojq -r .expired)
+    name_result_expired=$(echo $name_result | jq -r .expired)
     assert_equal $name_result_expired true "Name not expired"
 }
 
@@ -474,7 +474,7 @@ if [[ $1 == "name_registration" ]]; then
     #newAconfl = node.name_new ("name-0")
     newAconfl=$(name_new_broadcast "$alice" "name-0")
     #addr = node.getnewaddress ()
-    addr=$($alice add_request 0 | gojq -r .address)
+    addr=$($alice add_request 0 | jq -r .address)
     echo $addr
     #newB = node.name_new ("name-1", {"destAddress": addr})
     newB=$(name_new_broadcast "$alice" "name-1 --destination $addr")
@@ -490,25 +490,25 @@ if [[ $1 == "name_registration" ]]; then
     echo "address.  Since there is no equivalent to name_show while we only"
     echo "have a name_new, explicitly check the raw tx."
     #txHex = node.gettransaction (newB[0])['hex']
-    txHex=$(echo $newB | gojq -r .tx)
+    txHex=$(echo $newB | jq -r .tx)
     #newTx = node.decoderawtransaction (txHex)
     newTx=$($alice deserialize $txHex)
     #found = False
     found=0
     #for out in newTx['vout']:
-    newTx_outputs=$(echo $newTx | gojq -r .outputs)
-    newTx_outputs_len=$(echo $newTx_outputs | gojq -r length)
+    newTx_outputs=$(echo $newTx | jq -r .outputs)
+    newTx_outputs_len=$(echo $newTx_outputs | jq -r length)
     for ((index=0; index<$newTx_outputs_len; index++)); do
-        out=$(echo $newTx_outputs | gojq -r .[$index])
+        out=$(echo $newTx_outputs | jq -r .[$index])
         # if 'nameOp' in out['scriptPubKey']:
-        out_name_op=$(echo $out | gojq -r .name_op)
+        out_name_op=$(echo $out | jq -r .name_op)
         if [[ "$out_name_op" != "null" ]]; then
             # assert not found
             assert_equal "$found" 0 "multiple name ops found"
             # found = True
             found=1
             # assert_equal (out['scriptPubKey']['addresses'], [addr])
-            out_addr=$(echo $out | gojq -r .address)
+            out_addr=$(echo $out | jq -r .address)
             assert_equal "$out_addr" "$addr" "wrong address"
         fi
     done
@@ -520,7 +520,7 @@ if [[ $1 == "name_registration" ]]; then
 
     echo "first_update the names.  Check for too long values."
     #addr = node.getnewaddress ()
-    addr=$($alice add_request 0 | gojq -r .address)
+    addr=$($alice add_request 0 | jq -r .address)
     echo $addr
     #txidA = self.firstupdateName (0, "name-0", newA, "value-0",
     #                              {"destAddress": addr})
@@ -558,20 +558,20 @@ if [[ $1 == "name_registration" ]]; then
 
     #data = self.checkName (0, "name-0", "value-0", 30, False)
     data_core=$($bitcoin_cli name_show name-0)
-    data_core_name=$(echo $data_core | gojq -r .name)
+    data_core_name=$(echo $data_core | jq -r .name)
     assert_equal "$data_core_name" "name-0" "Wrong name"
-    data_core_value=$(echo $data_core | gojq -r .value)
+    data_core_value=$(echo $data_core | jq -r .value)
     assert_equal "$data_core_value" "value-0" "Wrong value"
-    data_core_expires_in=$(echo $data_core | gojq -r .expires_in)
+    data_core_expires_in=$(echo $data_core | jq -r .expires_in)
     assert_equal "$data_core_expires_in" "30" "Wrong expires_in"
-    data_core_expired=$(echo $data_core | gojq -r .expired)
+    data_core_expired=$(echo $data_core | jq -r .expired)
     assert_equal "$data_core_expired" "false" "Wrong expired"
     assert_raises_error "$alice name_show name-0" "Name is purportedly unconfirmed"
     #assert_equal (data['address'], addr)
-    data_core_address=$(echo $data_core | gojq -r .address)
+    data_core_address=$(echo $data_core | jq -r .address)
     assert_equal "$data_core_address" "$addr" "Wrong address"
     #assert_equal (data['txid'], txidA)
-    data_core_txid=$(echo $data_core | gojq -r .txid)
+    data_core_txid=$(echo $data_core | jq -r .txid)
     assert_equal "$data_core_txid" "$txidA" "Wrong txid"
     #assert_equal (data['height'], 213)
     echo "Skipping height field."
@@ -586,30 +586,30 @@ if [[ $1 == "name_registration" ]]; then
     wait_for_chain_sync "$alice"
     data_core=$($bitcoin_cli name_show name-0)
     data_electrum=$($alice name_show name-0)
-    assert_equal "$(echo $data_core | gojq -r .name)" "$(echo $data_electrum | gojq -r .name)" "Core/Electrum mismatched name"
-    assert_equal "$(echo $data_core | gojq -r .value)" "$(echo $data_electrum | gojq -r .value)" "Core/Electrum mismatched value"
-    assert_equal "$(echo $data_core | gojq -r .txid)" "$(echo $data_electrum | gojq -r .txid)" "Core/Electrum mismatched txid"
-    assert_equal "$(echo $data_core | gojq -r .vout)" "$(echo $data_electrum | gojq -r .vout)" "Core/Electrum mismatched vout"
-    assert_equal "$(echo $data_core | gojq -r .address)" "$(echo $data_electrum | gojq -r .address)" "Core/Electrum mismatched address"
-    assert_equal "$(echo $data_core | gojq -r .height)" "$(echo $data_electrum | gojq -r .height)" "Core/Electrum mismatched height"
-    assert_equal "$(echo $data_core | gojq -r .expires_in)" "$(echo $data_electrum | gojq -r .expires_in)" "Core/Electrum mismatched expires_in"
-    assert_equal "$(echo $data_core | gojq -r .expired)" "$(echo $data_electrum | gojq -r .expired)" "Core/Electrum mismatched expired"
+    assert_equal "$(echo $data_core | jq -r .name)" "$(echo $data_electrum | jq -r .name)" "Core/Electrum mismatched name"
+    assert_equal "$(echo $data_core | jq -r .value)" "$(echo $data_electrum | jq -r .value)" "Core/Electrum mismatched value"
+    assert_equal "$(echo $data_core | jq -r .txid)" "$(echo $data_electrum | jq -r .txid)" "Core/Electrum mismatched txid"
+    assert_equal "$(echo $data_core | jq -r .vout)" "$(echo $data_electrum | jq -r .vout)" "Core/Electrum mismatched vout"
+    assert_equal "$(echo $data_core | jq -r .address)" "$(echo $data_electrum | jq -r .address)" "Core/Electrum mismatched address"
+    assert_equal "$(echo $data_core | jq -r .height)" "$(echo $data_electrum | jq -r .height)" "Core/Electrum mismatched height"
+    assert_equal "$(echo $data_core | jq -r .expires_in)" "$(echo $data_electrum | jq -r .expires_in)" "Core/Electrum mismatched expires_in"
+    assert_equal "$(echo $data_core | jq -r .expired)" "$(echo $data_electrum | jq -r .expired)" "Core/Electrum mismatched expired"
 
     echo "Add enough confirmations for expires_in=1"
     new_blocks 18
     wait_for_chain_sync "$alice"
     data_core=$($bitcoin_cli name_show name-0)
-    assert_equal "$(echo $data_core | gojq -r .expires_in)" 1 "Wrong expires_in"
-    assert_equal "$(echo $data_core | gojq -r .expired)" false "Wrong expired"
+    assert_equal "$(echo $data_core | jq -r .expires_in)" 1 "Wrong expires_in"
+    assert_equal "$(echo $data_core | jq -r .expired)" false "Wrong expired"
     data_electrum=$($alice name_show name-0)
-    assert_equal "$(echo $data_core | gojq -r .name)" "$(echo $data_electrum | gojq -r .name)" "Core/Electrum mismatched name"
-    assert_equal "$(echo $data_core | gojq -r .value)" "$(echo $data_electrum | gojq -r .value)" "Core/Electrum mismatched value"
-    assert_equal "$(echo $data_core | gojq -r .txid)" "$(echo $data_electrum | gojq -r .txid)" "Core/Electrum mismatched txid"
-    assert_equal "$(echo $data_core | gojq -r .vout)" "$(echo $data_electrum | gojq -r .vout)" "Core/Electrum mismatched vout"
-    assert_equal "$(echo $data_core | gojq -r .address)" "$(echo $data_electrum | gojq -r .address)" "Core/Electrum mismatched address"
-    assert_equal "$(echo $data_core | gojq -r .height)" "$(echo $data_electrum | gojq -r .height)" "Core/Electrum mismatched height"
-    assert_equal "$(echo $data_core | gojq -r .expires_in)" "$(echo $data_electrum | gojq -r .expires_in)" "Core/Electrum mismatched expires_in"
-    assert_equal "$(echo $data_core | gojq -r .expired)" "$(echo $data_electrum | gojq -r .expired)" "Core/Electrum mismatched expired"
+    assert_equal "$(echo $data_core | jq -r .name)" "$(echo $data_electrum | jq -r .name)" "Core/Electrum mismatched name"
+    assert_equal "$(echo $data_core | jq -r .value)" "$(echo $data_electrum | jq -r .value)" "Core/Electrum mismatched value"
+    assert_equal "$(echo $data_core | jq -r .txid)" "$(echo $data_electrum | jq -r .txid)" "Core/Electrum mismatched txid"
+    assert_equal "$(echo $data_core | jq -r .vout)" "$(echo $data_electrum | jq -r .vout)" "Core/Electrum mismatched vout"
+    assert_equal "$(echo $data_core | jq -r .address)" "$(echo $data_electrum | jq -r .address)" "Core/Electrum mismatched address"
+    assert_equal "$(echo $data_core | jq -r .height)" "$(echo $data_electrum | jq -r .height)" "Core/Electrum mismatched height"
+    assert_equal "$(echo $data_core | jq -r .expires_in)" "$(echo $data_electrum | jq -r .expires_in)" "Core/Electrum mismatched expires_in"
+    assert_equal "$(echo $data_core | jq -r .expired)" "$(echo $data_electrum | jq -r .expired)" "Core/Electrum mismatched expired"
 
     echo "Add enough confirmations for expires_in=0"
     new_blocks 1
@@ -663,7 +663,7 @@ if [[ $1 == "name_autoregister" ]]; then
     #newAconfl = node.name_new ("name-0")
     # Skip this line for name_autoregister
     #addr = node.getnewaddress ()
-    addr=$($alice add_request 0 | gojq -r .address)
+    addr=$($alice add_request 0 | jq -r .address)
     echo $addr
     #newB = node.name_new ("name-1", {"destAddress": addr})
     $alice name_autoregister "name-1" --destination "$addr"
