@@ -99,7 +99,7 @@ task:
     - apt-get update
     - apt-get -y install libsecp256k1-0 curl jq bc
     - pip3 install .[tests]
-    - pip3 install electrumx
+    - pip3 install electrumx==1.15.0
     - BITCOIND_URL=$(curl https://www.namecoin.org/download/ | grep x86_64-linux-gnu.tar.gz | grep -v 0.13.99 | grep --only-matching https://.*.tar.gz)
     - BITCOIND_FILENAME=$(echo $BITCOIND_URL | grep -E --only-matching 'namecoin-nc.*.tar.gz')
     - BITCOIND_PATH=/tmp/bitcoind/$BITCOIND_FILENAME
