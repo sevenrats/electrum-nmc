@@ -22,7 +22,9 @@ source.exclude_exts = spec
 source.exclude_dirs = bin, build, dist, contrib,
     electrum_nmc/electrum/tests,
     electrum_nmc/electrum/gui/qt,
-    electrum_nmc/electrum/gui/kivy/theming/light
+    electrum_nmc/electrum/gui/kivy/theming/light,
+    packages/qdarkstyle,
+    packages/qtpy
 # (list) List of exclusions using pattern matching
 source.exclude_patterns = Makefile,setup*
 

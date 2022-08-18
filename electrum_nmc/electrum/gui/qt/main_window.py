@@ -1221,7 +1221,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             key = self.wallet.lnworker.add_request(amount, message, expiry)
         else:
             key = self.create_bitcoin_request(amount, message, expiry)
+            if not key:
+                return
             self.address_list.update()
+        assert key is not None
         self.request_list.update()
         self.request_list.select_key(key)
         # clear request fields
@@ -1233,20 +1236,23 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         title = _('Invoice') if is_lightning else _('Address')
         self.do_copy(content, title=title)
 
-    def create_bitcoin_request(self, amount, message, expiration):
+    def create_bitcoin_request(self, amount, message, expiration) -> Optional[str]:
         addr = self.wallet.get_unused_address()
         if addr is None:
-            if not self.wallet.is_deterministic():
+            if not self.wallet.is_deterministic():  # imported wallet
                 msg = [
-                    _('No more addresses in your wallet.'),
-                    _('You are using a non-deterministic wallet, which cannot create new addresses.'),
-                    _('If you want to create new addresses, use a deterministic wallet instead.')
+                    _('No more addresses in your wallet.'), ' ',
+                    _('You are using a non-deterministic wallet, which cannot create new addresses.'), ' ',
+                    _('If you want to create new addresses, use a deterministic wallet instead.'), '\n\n',
+                    _('Creating a new payment request will reuse one of your addresses and overwrite an existing request. Continue anyway?'),
                    ]
-                self.show_message(' '.join(msg))
-                return
-            if not self.question(_("Warning: The next address will not be recovered automatically if you restore your wallet from seed; you may need to add it manually.\n\nThis occurs because you have too many unused addresses in your wallet. To avoid this situation, use the existing addresses first.\n\nCreate anyway?")):
-                return
-            addr = self.wallet.create_new_address(False)
+                if not self.question(''.join(msg)):
+                    return
+                addr = self.wallet.get_receiving_address()
+            else:  # deterministic wallet
+                if not self.question(_("Warning: The next address will not be recovered automatically if you restore your wallet from seed; you may need to add it manually.\n\nThis occurs because you have too many unused addresses in your wallet. To avoid this situation, use the existing addresses first.\n\nCreate anyway?")):
+                    return
+                addr = self.wallet.create_new_address(False)
         req = self.wallet.make_payment_request(addr, amount, message, expiration)
         try:
             self.wallet.add_payment_request(req)
@@ -1956,8 +1962,13 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         return self.create_list_tab(l)
 
     def remove_address(self, addr):
-        if self.question(_("Do you want to remove {} from your wallet?").format(addr)):
+        if not self.question(_("Do you want to remove {} from your wallet?").format(addr)):
+            return
+        try:
             self.wallet.delete_address(addr)
+        except UserFacingException as e:
+            self.show_error(str(e))
+        else:
             self.need_update.set()  # history, addresses, coins
             self.clear_receive_tab()
 
