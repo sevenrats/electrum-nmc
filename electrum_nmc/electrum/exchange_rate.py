@@ -368,6 +368,13 @@ class CoinGecko(ExchangeBase):
 
 
 """
+class CointraderMonitor(ExchangeBase):
+
+    async def get_rates(self, ccy):
+        json = await self.get_json('cointradermonitor.com', '/api/pbb/v1/ticker')
+        return {'BRL': Decimal(json['last'])}
+
+
 class itBit(ExchangeBase):
 
     async def get_rates(self, ccy):
@@ -415,16 +422,6 @@ class MercadoBitcoin(ExchangeBase):
 """
 
 
-# Doesn't support Namecoin.
-"""
-class NegocieCoins(ExchangeBase):
-
-    async def get_rates(self,ccy):
-        json = await self.get_json('api.bitvalor.com', '/v1/ticker.json')
-        return {'BRL': Decimal(json['ticker_1h']['exchanges']['NEG']['last'])}
-"""
-
-# Doesn't support Namecoin.
 """
 class TheRockTrading(ExchangeBase):
 
@@ -462,6 +459,20 @@ class Zaif(ExchangeBase):
         json = await self.get_json('api.zaif.jp', '/api/1/last_price/btc_jpy')
         return {'JPY': Decimal(json['last_price'])}
 """
+
+
+class Bitragem(ExchangeBase):
+
+    async def get_rates(self,ccy):
+        json = await self.get_json('api.bitragem.com', '/v1/index?asset=BTC&market=BRL')
+        return {'BRL': Decimal(json['response']['index'])}
+
+
+class Biscoint(ExchangeBase):
+
+    async def get_rates(self,ccy):
+        json = await self.get_json('api.biscoint.io', '/v1/ticker?base=BTC&quote=BRL')
+        return {'BRL': Decimal(json['data']['last'])}
 
 
 def dictinvert(d):
@@ -591,8 +602,11 @@ class FxThread(ThreadJob):
         self.config.set_key('use_exchange_rate', bool(b))
         self.trigger_update()
 
-    def get_history_config(self, *, default=False):
-        return bool(self.config.get('history_rates', default))
+    def get_history_config(self, *, allow_none=False):
+        val = self.config.get('history_rates', None)
+        if val is None and allow_none:
+            return None
+        return bool(val)
 
     def set_history_config(self, b):
         self.config.set_key('history_rates', bool(b))
