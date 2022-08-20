@@ -99,6 +99,8 @@ from .channels_list import ChannelsList
 from .confirm_tx_dialog import ConfirmTxDialog
 from .transaction_dialog import PreviewTxDialog
 
+from .forms.managenamespage import Ui_ManageNamesPage
+
 if TYPE_CHECKING:
     from . import ElectrumGui
 
@@ -3449,41 +3451,28 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         show_configure_name(identifier, initial_value, self, True)
 
     def create_names_tab(self):
-        self.names_vbox = vbox = QVBoxLayout()
-
-        self.names_your_names_label = QLabel(_('Your registered names (pending and unconfirmed names have blank expiration):'))
-        vbox.addWidget(self.names_your_names_label)
+        w = QWidget()
+        self.names_ui = Ui_ManageNamesPage()
+        self.names_ui.setupUi(w)
 
         # List of names
         from .uno_list import UNOList
         self.names_uno_list = l = UNOList(self)
-        vbox.addWidget(self.create_list_tab(l))
+        old_uno_list = self.names_ui.verticalLayout.replaceWidget(self.names_ui.tableView, self.names_uno_list)
+        self.names_ui.tableView = self.names_uno_list
+        old_uno_list.widget().setParent(None)
 
         self.names_actions_hbox = QHBoxLayout()
 
-        # Components of names_actions_hbox
-        self.names_configure_button = QPushButton(_('Configure Name...'))
-        self.names_configure_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.names_configure_button.setMinimumSize(150, 0)
+        self.names_configure_button = self.names_ui.configureNameButton
         self.names_configure_button.clicked.connect(l.configure_selected_item)
-        self.names_renew_button = QPushButton(_('Renew Names'))
-        self.names_renew_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.names_renew_button.setMinimumSize(150, 0)
+        self.names_renew_button = self.names_ui.renewNameButton
         self.names_renew_button.clicked.connect(l.renew_selected_items)
 
         l.selectionModel().selectionChanged.connect(self.update_name_buttons_enabled)
 
         self.update_name_buttons_enabled()
 
-        self.names_actions_hbox.addWidget(self.names_configure_button)
-        self.names_actions_hbox.addWidget(self.names_renew_button)
-
-        self.names_actions = QWidget()
-        self.names_actions.setLayout(self.names_actions_hbox)
-        vbox.addWidget(self.names_actions)
-
-        w = QWidget()
-        w.setLayout(vbox)
         return w
 
     def update_name_buttons_enabled(self):

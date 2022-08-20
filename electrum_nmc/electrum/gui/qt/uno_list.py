@@ -66,6 +66,10 @@ class UNOList(UTXOList):
     filter_columns = [Columns.NAME, Columns.VALUE]
     stretch_column = Columns.VALUE
 
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.doubleClicked.connect(self.configure_selected_item)
+
     def update(self):
         self.network = self.parent.network
         super().update()
@@ -179,6 +183,8 @@ class UNOList(UTXOList):
         utxo_item[self.Columns.NAME].setData(name, Qt.UserRole + USER_ROLE_NAME)
         utxo_item[self.Columns.NAME].setData(value, Qt.UserRole + USER_ROLE_VALUE)
 
+        utxo_item[self.Columns.NAME].setToolTip(_("Double-click name to configure"))
+        utxo_item[self.Columns.VALUE].setToolTip(_("Double-click name to configure"))
         utxo_item[self.Columns.SEMI_EXPIRES_IN].setToolTip(formatted_expires_in)
         if status_tooltip is not None:
             utxo_item[self.Columns.STATUS].setToolTip(status_tooltip)
