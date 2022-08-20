@@ -81,6 +81,7 @@ from electrum.lnaddr import lndecode, LnDecodeException
 from .exception_window import Exception_Hook
 from .amountedit import AmountEdit, BTCAmountEdit, FreezableLineEdit, FeerateEdit
 from .configure_name_dialog import show_configure_name
+from .trade_name_dialog import show_trade_name
 from .qrcodewidget import QRCodeWidget, QRDialog
 from .qrtextedit import ShowQRTextEdit, ScanQRTextEdit
 from .transaction_dialog import show_transaction
@@ -3353,6 +3354,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         self.buy_names_register_button.clicked.connect(self.register_new_name)
         self.buy_names_register_button.hide()
 
+        self.buy_names_buy_button = self.buy_names_ui.buyNameButton
+        self.buy_names_buy_button.clicked.connect(self.buy_name)
+        self.buy_names_buy_button.hide()
+
         return w
 
     def update_buy_names_preview(self):
@@ -3363,6 +3368,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
 
         self.buy_names_status_label.setText(_(""))
         self.buy_names_register_button.hide()
+        self.buy_names_buy_button.hide()
 
     def check_name_availability(self):
         # TODO: handle non-ASCII encodings
@@ -3449,30 +3455,38 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
 
         if chain_syncing:
             self.buy_names_register_button.hide()
+            self.buy_names_buy_button.hide()
             self.buy_names_status_label.setText(_("The blockchain is still syncing; please wait and then try again."))
         elif not name_valid:
             self.buy_names_register_button.hide()
+            self.buy_names_buy_button.hide()
             self.buy_names_status_label.setText(_("That name is invalid (probably exceeded the 255-byte limit) and therefore cannot be registered."))
         elif name_mine:
             self.buy_names_register_button.hide()
+            self.buy_names_buy_button.hide()
             self.buy_names_status_label.setText(_("You already own ") + identifier_formatted + _("!"))
         elif name_pending_mine:
             self.buy_names_register_button.hide()
+            self.buy_names_buy_button.hide()
             self.buy_names_status_label.setText(_("You already have a registration pending for ") + identifier_formatted + _("!"))
         elif name_snipe_pending_mine:
             self.buy_names_register_button.hide()
-            self.buy_names_status_label.setText(_("You already have a snipe pending for ") + identifier_formatted + _("!  Your snipe will be broadcast if/when the name expires."))
+            self.buy_names_buy_button.show()
+            self.buy_names_status_label.setText(_("You already have a snipe pending for ") + identifier_formatted + _("!  Your snipe will be broadcast if/when the name expires.  You might be able to buy the name from the current owner."))
         elif name_exists and not name_pending_unverified:
             self.buy_names_register_button.hide()
-            self.buy_names_status_label.setText(identifier_formatted + _(" is already registered, sorry!"))
+            self.buy_names_buy_button.show()
+            self.buy_names_status_label.setText(identifier_formatted + _(" is already registered.  You might be able to buy the name from the current owner."))
         elif name_pending_unverified:
             self.buy_names_register_button.show()
+            self.buy_names_buy_button.show()
             if name_mine_unverified:
-                self.buy_names_status_label.setText(_("The server reports that you already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  If you believe the server is wrong, you can try to register it, but you may forfeit the name registration fee."))
+                self.buy_names_status_label.setText(_("The server reports that you already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  If you believe the server is wrong, you can try to register it or buy it from the current owner, but you may forfeit the name registration fee."))
             else:
-                self.buy_names_status_label.setText(_("The server reports that someone else already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  If you believe the server is wrong, you can try to register it, but you may forfeit the name registration fee."))
+                self.buy_names_status_label.setText(_("The server reports that someone else already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  You might be able to buy the name from the current owner.  If you believe the server is wrong, you can try to register it, but you may forfeit the name registration fee."))
         else:
             self.buy_names_register_button.show()
+            self.buy_names_buy_button.hide()
             self.buy_names_status_label.setText(identifier_formatted + _(" is available to register!"))
 
     def register_new_name(self):
@@ -3483,6 +3497,16 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         initial_value = b''
 
         show_configure_name(identifier, initial_value, self, True)
+
+    def buy_name(self):
+        # TODO: handle non-ASCII encodings
+        identifier_ascii = self.buy_names_new_name_lineedit.text()
+        identifier = identifier_ascii.encode('ascii')
+
+        # TODO: use existing value
+        initial_value = b''
+
+        show_trade_name(identifier, initial_value, self, buy=True)
 
     def create_names_tab(self):
         w = QWidget()

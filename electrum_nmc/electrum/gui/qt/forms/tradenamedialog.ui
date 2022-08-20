@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>SellNameDialog</class>
- <widget class="QDialog" name="SellNameDialog">
+ <class>TradeNameDialog</class>
+ <widget class="QDialog" name="TradeNameDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Sell Name</string>
+   <string>Trade Name</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -60,7 +60,7 @@
      </item>
      
      <item row="4" column="0">
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="amountLabel">
        <property name="text">
         <string>Requested &amp;amount:</string>
        </property>
@@ -153,9 +153,28 @@
     </layout>
    </item>
    <item>
-    <widget class="QLabel" name="labelSubmitHint">
+    <widget class="QLabel" name="labelSubmitSellHint">
      <property name="text">
          <string notr="true">If you leave the Buy Offer field blank, you are committing to sell this name to anyone who pays the specified price.&lt;br&gt;&lt;br&gt;If you want control over whom you sell this name to (or if you already possess a Buy Offer), paste a specific Buy Offer to accept (the trade will take approximately 10 minutes to 2 hours).</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+     <property name="margin">
+      <number>10</number>
+     </property>
+     <property name="indent">
+      <number>10</number>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="labelSubmitBuyHint">
+     <property name="text">
+         <string notr="true">If you leave the Sell Offer field blank, you are committing to buy this name from anyone who owns it and accepts the specified price.&lt;br&gt;&lt;br&gt;If you already possess a Sell Offer, paste it to accept (the trade will take approximately 10 minutes to 2 hours).</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -182,9 +201,28 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="labelOutputHint">
+    <widget class="QLabel" name="labelOutputSellHint">
      <property name="text">
          <string notr="true">Publish the above hex Sell Offer wherever a potential buyer might see it.  You can change your mind and revoke your Sell Offer by updating or renewing this name.</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+     <property name="margin">
+      <number>10</number>
+     </property>
+     <property name="indent">
+      <number>10</number>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="labelOutputBuyHint">
+     <property name="text">
+         <string notr="true">Publish the above hex Buy Offer wherever the current name owner might see it.  You can change your mind and revoke your Buy Offer by double-spending the coins used in the offer.</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -248,7 +286,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>SellNameDialog</receiver>
+   <receiver>TradeNameDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

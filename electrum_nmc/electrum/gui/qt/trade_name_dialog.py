@@ -38,34 +38,44 @@ from electrum.network import TxBroadcastError, BestEffortRequestFailed
 from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates, is_hex_str
 from electrum.wallet import InternalAddressCorruption
 
-from .forms.sellnamedialog import Ui_SellNameDialog
+from .forms.tradenamedialog import Ui_TradeNameDialog
 from .amountedit import AmountEdit, BTCAmountEdit
 from .util import MessageBoxMixin
 
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 
 
-def show_sell_name(identifier, parent):
-    d = SellNameDialog(identifier, parent)
+def show_trade_name(identifier, value, parent, buy):
+    d = TradeNameDialog(identifier, value, parent, buy=buy)
 
     dialogs.append(d)
     d.show()
 
 
-class SellNameDialog(QDialog, MessageBoxMixin):
-    def __init__(self, identifier, parent):
+class TradeNameDialog(QDialog, MessageBoxMixin):
+    def __init__(self, identifier, value, parent, buy):
         # We want to be a top-level window
         QDialog.__init__(self, parent=None)
 
         self.main_window = parent
         self.wallet = self.main_window.wallet
 
-        self.ui = Ui_SellNameDialog()
+        self.ui = Ui_TradeNameDialog()
         self.ui.setupUi(self)
 
-        self.identifier = identifier
+        if buy:
+            self.setWindowTitle(_("Buy Name"))
+            self.ui.amountLabel.setText(_("Amount to offer:"))
+            self.ui.labelOffer.setText(_("Sell Offer to accept:"))
+        else:
+            self.setWindowTitle(_("Sell Name"))
+            self.ui.amountLabel.setText(_("Requested amount:"))
+            self.ui.labelOffer.setText(_("Buy Offer to accept:"))
 
-        self.ui.buttonBox.accepted.connect(lambda: self.sell(self.identifier, self.amount_edit.get_amount(), self.input_offer.toPlainText()))
+        self.identifier = identifier
+        self.buy = buy
+
+        self.ui.buttonBox.accepted.connect(lambda: self.trade(self.identifier, self.amount_edit.get_amount(), self.input_offer.toPlainText()))
 
         formatted_name_split = format_name_identifier_split(self.identifier)
         self.ui.labelNamespace.setText(formatted_name_split.category + ":")
@@ -78,7 +88,7 @@ class SellNameDialog(QDialog, MessageBoxMixin):
 
         self.fiat_amount_edit = AmountEdit(self.main_window.fx.get_currency if self.main_window.fx else '')
         if not self.main_window.fx or not self.main_window.fx.is_enabled():
-            self.fiat_amount_edit.setVisible(False)
+            self.fiat_amount_edit.hide()
         old_fiat_amount_edit = self.ui.horizontalLayout_amountEdit.replaceWidget(self.ui.fiatAmountEdit, self.fiat_amount_edit)
         self.ui.fiatAmountEdit = self.fiat_amount_edit
         old_fiat_amount_edit.widget().setParent(None)
@@ -86,9 +96,18 @@ class SellNameDialog(QDialog, MessageBoxMixin):
         self.main_window.connect_fields(self.main_window, self.amount_edit, self.fiat_amount_edit, None)
 
         self.input_offer = self.ui.inputOffer
+        self.submit_sell_hint = self.ui.labelSubmitSellHint
+        self.submit_buy_hint = self.ui.labelSubmitBuyHint
+        if buy:
+            self.submit_sell_hint.hide()
+            self.submit_buy_hint.show()
+        else:
+            self.submit_sell_hint.show()
+            self.submit_buy_hint.hide()
 
         self.output_offer = self.ui.outputOffer
-        self.output_offer_hint = self.ui.labelOutputHint
+        self.output_offer_sell_hint = self.ui.labelOutputSellHint
+        self.output_offer_buy_hint = self.ui.labelOutputBuyHint
         self.hide_output_offer()
 
         self.amount_edit.textChanged.connect(self.hide_output_offer)
@@ -96,22 +115,29 @@ class SellNameDialog(QDialog, MessageBoxMixin):
 
     def hide_output_offer(self):
         self.output_offer.setPlainText("")
-        self.output_offer.setVisible(False)
-        self.output_offer_hint.setVisible(False)
+        self.output_offer.hide()
+        self.output_offer_sell_hint.hide()
+        self.output_offer_buy_hint.hide()
 
-    def sell(self, identifier, amount_sat, offer):
+    def trade(self, identifier, amount_sat, offer):
         if amount_sat is None:
             self.show_error(_("Amount is blank"))
             return
         amount = Decimal(amount_sat)/COIN
 
-        name_sell = self.main_window.console.namespace.get('name_sell')
+        if self.buy:
+            name_trade = self.main_window.console.namespace.get('name_buy')
+        else:
+            name_trade = self.main_window.console.namespace.get('name_sell')
         broadcast = self.main_window.console.namespace.get('broadcast')
 
         offer = offer.replace(" ", "")
 
         if not is_hex_str(offer):
-            self.show_error(_("Buy offer is not valid hex"))
+            if self.buy:
+                self.show_error(_("Sell offer is not valid hex"))
+            else:
+                self.show_error(_("Buy offer is not valid hex"))
             return
 
         if offer == "":
@@ -120,16 +146,21 @@ class SellNameDialog(QDialog, MessageBoxMixin):
         if offer is None and self.output_offer.toPlainText() != "":
             return
 
+        if self.buy:
+            error_message = _("Error buying {}: {}")
+        else:
+            error_message = _("Error selling {}: {}")
+
         try:
             # TODO: support non-ASCII encodings
-            result = name_sell(identifier.decode('ascii'), amount=amount, offer=offer)
+            result = name_trade(identifier.decode('ascii'), amount=amount, offer=offer)
         except (NotEnoughFunds, NoDynamicFeeEstimates) as e:
             formatted_name = format_name_identifier(identifier)
-            self.show_error(_("Error selling ") + formatted_name + ": " + str(e))
+            self.show_error(error_message.format(formatted_name, str(e)))
             return
         except InternalAddressCorruption as e:
             formatted_name = format_name_identifier(identifier)
-            self.show_error(_("Error selling ") + formatted_name + ": " + str(e))
+            self.show_error(error_message.format(formatted_name, str(e)))
             return
         except BestEffortRequestFailed as e:
             msg = repr(e)
@@ -138,18 +169,23 @@ class SellNameDialog(QDialog, MessageBoxMixin):
         except BaseException as e:
             traceback.print_exc(file=sys.stdout)
             formatted_name = format_name_identifier(identifier)
-            self.show_error(_("Error selling ") + formatted_name + ": " + str(e))
+            self.show_error(error_message.format(formatted_name, str(e)))
             return
 
         if offer is None:
             self.output_offer.setPlainText(result)
-            self.output_offer.setVisible(True)
-            self.output_offer_hint.setVisible(True)
+            self.output_offer.show()
+            if self.buy:
+                self.output_offer_buy_hint.show()
+                self.output_offer_sell_hint.hide()
+            else:    
+                self.output_offer_sell_hint.show()
+                self.output_offer_buy_hint.hide()
         else:
             try:
                 broadcast(result)
             except Exception as e:
                 formatted_name = format_name_identifier(identifier)
-                self.show_error(_("Error broadcasting update for ") + formatted_name + ": " + str(e))
+                self.show_error(_("Error broadcasting trade for ") + formatted_name + ": " + str(e))
                 return
             self.accept()

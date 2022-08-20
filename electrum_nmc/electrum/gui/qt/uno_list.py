@@ -41,7 +41,7 @@ from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates, bh2u
 from electrum.wallet import InternalAddressCorruption
 
 from .configure_name_dialog import show_configure_name
-from .sell_name_dialog import show_sell_name
+from .trade_name_dialog import show_trade_name
 from .util import MyTreeView, ColorScheme, MONOSPACE_FONT
 from .utxo_list import UTXOList
 
@@ -360,4 +360,4 @@ class UNOList(UTXOList):
 
         identifier = item.data(Qt.UserRole + USER_ROLE_NAME)
 
-        show_sell_name(identifier, self.parent)
+        show_trade_name(identifier, None, self.parent, buy=False)
