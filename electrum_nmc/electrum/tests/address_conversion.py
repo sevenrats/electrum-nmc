@@ -132,3 +132,56 @@ def frombtcbytes(inp: bytes) -> bytes:
         return inp.replace(bitcoin_testnet_rev_genesis, BitcoinTestnet.rev_genesis_bytes())
 
     raise AssertionError(f"Invalid input for format conversion: {inp}")
+
+
+def tryFromBTC(val):
+    """
+    Tries to convert the given string using frombtc, returning the
+    original string if that fails.
+    """
+
+    try:
+        return frombtc(val)
+    except:
+        return val
+
+
+def jsonFromBTC(strval):
+    """
+    Parses the given string as JSON and then recursively tries to convert
+    object keys/values and array elements using tryFromBTC.  The result is
+    returned again as serialised JSON string.
+    """
+
+    def recurse(cur):
+      if isinstance(cur, str):
+        return tryFromBTC(cur)
+      if isinstance(cur, list):
+        return [recurse(el) for el in cur]
+      if isinstance(cur, dict):
+        return {tryFromBTC(key): recurse(val) for key, val in cur.items()}
+      return cur
+
+    # The very first test (upgrade_from_client_1_9_8_seeded) uses single quotes
+    # in the JSON string, which is actually not valid JSON.  We need to convert
+    # them to double quotes temporarily for processing.  It also has "False"
+    # instead of "false" and integers (0, 1) as "keys".
+    if strval[1] == "'":
+        replaced = {
+          "'": '"',
+          "False": "false",
+          "0:": '"0":',
+          "1:": '"1":',
+        }
+        for old, new in replaced.items():
+            strval = strval.replace(old, new)
+    else:
+        replaced = {}
+
+    import json
+    res = json.dumps(recurse(json.loads(strval)))
+
+    for old, new in replaced.items():
+        res = res.replace(new, old)
+
+    return res
