@@ -41,6 +41,7 @@ from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates, bh2u
 from electrum.wallet import InternalAddressCorruption
 
 from .configure_name_dialog import show_configure_name
+from .sell_name_dialog import show_sell_name
 from .util import MyTreeView, ColorScheme, MONOSPACE_FONT
 from .utxo_list import UTXOList
 
@@ -251,6 +252,7 @@ class UNOList(UTXOList):
             if tx:
                 label = self.wallet.get_label(txid) or None # Prefer None if empty (None hides the Description: field in the window)
                 menu.addAction(_("Configure"), lambda: self.configure_selected_item())
+                menu.addAction(_("Sell"), lambda: self.sell_selected_item())
                 menu.addAction(_("Transaction Details"), lambda: self.parent.show_transaction(tx, tx_desc=label))
 
         # "Copy ..."
@@ -347,3 +349,15 @@ class UNOList(UTXOList):
 
         show_configure_name(identifier, initial_value, self.parent, False)
 
+    def sell_selected_item(self):
+        selected = self.selected_in_column(0)
+        if not selected:
+            return
+        if len(selected) != 1:
+            return
+
+        item = selected[0]
+
+        identifier = item.data(Qt.UserRole + USER_ROLE_NAME)
+
+        show_sell_name(identifier, self.parent)

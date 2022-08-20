@@ -3500,6 +3500,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         self.names_configure_button.clicked.connect(l.configure_selected_item)
         self.names_renew_button = self.names_ui.renewNameButton
         self.names_renew_button.clicked.connect(l.renew_selected_items)
+        self.names_sell_button = self.names_ui.sellNameButton
+        self.names_sell_button.clicked.connect(l.sell_selected_item)
 
         l.selectionModel().selectionChanged.connect(self.update_name_buttons_enabled)
 
@@ -3514,16 +3516,22 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             self.names_configure_button.setToolTip(_('Change the value of the selected name or transfer ownership (you must select a name first)'))
             self.names_renew_button.setDisabled(True)
             self.names_renew_button.setToolTip(_('Renew the selected names with their current values (nothing will happen for names updated in the last 12 blocks) (you must select at least 1 name first)'))
+            self.names_sell_button.setDisabled(True)
+            self.names_sell_button.setToolTip(_('Create a Sell Offer or redeem a Buy Offer (you must select a name first)'))
         elif len(selected) == 1:
             self.names_configure_button.setEnabled(True)
             self.names_configure_button.setToolTip(_('Change the value of the selected name or transfer ownership'))
             self.names_renew_button.setEnabled(True)
             self.names_renew_button.setToolTip(_('Renew the selected names with their current values (nothing will happen for names updated in the last 12 blocks)'))
+            self.names_sell_button.setEnabled(True)
+            self.names_sell_button.setToolTip(_('Create a Sell Offer or redeem a Buy Offer'))
         elif len(selected) > 1:
             self.names_configure_button.setDisabled(True)
             self.names_configure_button.setToolTip(_('Change the value of the selected name or transfer ownership (you must only select a single name)'))
             self.names_renew_button.setEnabled(True)
             self.names_renew_button.setToolTip(_('Renew the selected names with their current values (nothing will happen for names updated in the last 12 blocks)'))
+            self.names_sell_button.setDisabled(True)
+            self.names_sell_button.setToolTip(_('Create a Sell Offer or redeem a Buy Offer (you must only select a single name)'))
 
     def update_queued_transactions(self):
         updatequeuedtransactions = self.console.namespace.get('updatequeuedtransactions')
