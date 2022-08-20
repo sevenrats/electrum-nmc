@@ -5,6 +5,10 @@ NSIS_FILENAME=nsis-3.05-setup.exe
 NSIS_URL=https://downloads.sourceforge.net/project/nsis/NSIS%203/3.05/$NSIS_FILENAME
 NSIS_SHA256=1a3cc9401667547b9b9327a177b13485f7c59c2303d4b6183e7bc9e6c8d6bfdb
 
+ZBAR_FILENAME=zbarw-20121031-setup.exe
+ZBAR_URL=https://downloads.sourceforge.net/project/zbarw/$ZBAR_FILENAME
+ZBAR_SHA256=177e32b272fa76528a3af486b74e9cb356707be1c5ace4ed3fcee9723e2c2c02
+
 LIBUSB_REPO="https://github.com/libusb/libusb.git"
 LIBUSB_COMMIT="e782eeb2514266f6738e242cdcb18e3ae1ed06fa"
 # ^ tag v1.0.23
