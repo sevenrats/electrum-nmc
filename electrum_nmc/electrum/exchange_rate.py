@@ -461,6 +461,7 @@ class Zaif(ExchangeBase):
 """
 
 
+"""
 class Bitragem(ExchangeBase):
 
     async def get_rates(self,ccy):
@@ -473,6 +474,7 @@ class Biscoint(ExchangeBase):
     async def get_rates(self,ccy):
         json = await self.get_json('api.biscoint.io', '/v1/ticker?base=BTC&quote=BRL')
         return {'BRL': Decimal(json['data']['last'])}
+"""
 
 
 def dictinvert(d):
