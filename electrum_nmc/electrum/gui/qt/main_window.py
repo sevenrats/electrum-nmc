@@ -61,12 +61,12 @@ from electrum.util import (format_time,
                            UserFacingException,
                            get_new_wallet_name, send_exception_to_crash_reporter,
                            InvalidBitcoinURI, maybe_extract_bolt11_invoice, NotEnoughFunds,
-                           NoDynamicFeeEstimates, MultipleSpendMaxTxOutputs)
+                           NoDynamicFeeEstimates, MultipleSpendMaxTxOutputs,
+                           AddTransactionException)
 from electrum.invoices import PR_TYPE_ONCHAIN, PR_TYPE_LN, PR_DEFAULT_EXPIRATION_WHEN_CREATING, Invoice
 from electrum.invoices import PR_PAID, PR_FAILED, pr_expiration_values, LNInvoice, OnchainInvoice
 from electrum.transaction import (Transaction, PartialTxInput,
                                   PartialTransaction, PartialTxOutput)
-from electrum.address_synchronizer import AddTransactionException
 from electrum.wallet import (Multisig_Wallet, CannotBumpFee, Abstract_Wallet,
                              sweep_preparations, InternalAddressCorruption)
 from electrum.version import ELECTRUM_VERSION
@@ -1527,14 +1527,18 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         self.wallet.thread.add(task)
         self.invoice_list.update()
 
-    def on_request_status(self, key, status):
+    def on_request_status(self, wallet, key, status):
+        if wallet != self.wallet:
+            return
         if key not in self.wallet.receive_requests:
             return
         if status == PR_PAID:
             self.notify(_('Payment received') + '\n' + key)
             self.need_update.set()
 
-    def on_invoice_status(self, key):
+    def on_invoice_status(self, wallet, key):
+        if wallet != self.wallet:
+            return
         req = self.wallet.get_invoice(key)
         if req is None:
             return
