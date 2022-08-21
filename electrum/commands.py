@@ -723,7 +723,7 @@ class Commands:
             if balance:
                 item += (format_satoshis(sum(wallet.get_addr_balance(addr))),)
             if labels:
-                item += (repr(wallet.labels.get(addr, '')),)
+                item += (repr(wallet.get_label(addr)),)
             out.append(item)
         return out
 
@@ -1351,6 +1351,7 @@ def get_parser():
     parser = argparse.ArgumentParser(
         epilog="Run 'electrum help <command>' to see the help for a command")
     add_global_options(parser)
+    add_wallet_option(parser)
     subparsers = parser.add_subparsers(dest='cmd', metavar='<command>')
     # gui
     parser_gui = subparsers.add_parser('gui', description="Run Electrum's Graphical User Interface.", help="Run GUI (default)")
