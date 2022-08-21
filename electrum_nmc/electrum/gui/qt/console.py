@@ -95,6 +95,11 @@ class Console(QtWidgets.QPlainTextEdit):
         self.setPlainText('')
         self.newPrompt(curr_line)
 
+    def keyboard_interrupt(self):
+        self.construct = []
+        self.appendPlainText('KeyboardInterrupt')
+        self.newPrompt('')
+
     def newPrompt(self, curr_line):
         if self.construct:
             prompt = '... ' + curr_line
@@ -286,6 +291,9 @@ class Console(QtWidgets.QPlainTextEdit):
             return
         elif event.key() == QtCore.Qt.Key_L and event.modifiers() == QtCore.Qt.ControlModifier:
             self.clear()
+        elif event.key() == QtCore.Qt.Key_C and event.modifiers() == QtCore.Qt.ControlModifier:
+            if not self.textCursor().selectedText():
+                self.keyboard_interrupt()
 
         super(Console, self).keyPressEvent(event)
 
