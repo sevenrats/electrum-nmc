@@ -872,7 +872,7 @@ class TestTransactionTestnet(TestCaseForTestnet):
 
         # Build the Transaction Output
         txout = PartialTxOutput.from_address_and_value(
-            'tb1qv9hg20f0g08d460l67ph6p4ukwt7m0ttqzj7mk', sats_less_fees)
+            frombtc('tb1qv9hg20f0g08d460l67ph6p4ukwt7m0ttqzj7mk'), sats_less_fees)
 
         # Build and sign the transaction
         tx = PartialTransaction.from_io([txin], [txout], locktime=locktime, version=1)
@@ -897,7 +897,7 @@ class TestTransactionTestnet(TestCaseForTestnet):
             locktime, opcodes.OP_CHECKLOCKTIMEVERIFY, opcodes.OP_DROP, pubkey, opcodes.OP_CHECKSIG,
         ]))
         from_addr = bitcoin.script_to_p2wsh(witness_script.hex())
-        self.assertEqual("tb1q9dn6qke9924xe3zmptmhrdge0s043pjxpjndypgnu2t9fvsd4crs2qjuer", from_addr)
+        self.assertEqual(frombtc("tb1q9dn6qke9924xe3zmptmhrdge0s043pjxpjndypgnu2t9fvsd4crs2qjuer"), from_addr)
         prevout = TxOutpoint(txid=bfh('8680971efd5203025cffe746f8598d0a704fae81f236ffe009c2609ec673d59a'), out_idx=0)
         txin = PartialTxInput(prevout=prevout)
         txin._trusted_value_sats = sats
@@ -907,7 +907,7 @@ class TestTransactionTestnet(TestCaseForTestnet):
 
         # Build the Transaction Output
         txout = PartialTxOutput.from_address_and_value(
-            'tb1qtgsfkgptcxdn6dz6wh8c4dguk3cezwne5j5c47', sats_less_fees)
+            frombtc('tb1qtgsfkgptcxdn6dz6wh8c4dguk3cezwne5j5c47'), sats_less_fees)
 
         # Build and sign the transaction
         tx = PartialTransaction.from_io([txin], [txout], locktime=locktime, version=2)
