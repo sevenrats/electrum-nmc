@@ -77,9 +77,6 @@ if [[ $1 == "init" ]]; then
     rm -rf /tmp/$2/
     agent="./run_electrum_nmc --regtest -D /tmp/$2"
     $agent create $create_opts --offline > /dev/null
-    if [[ "$create_opts" != *"standard"* ]]; then
-    $agent -o init_lightning
-    fi
     $agent setconfig --offline log_to_file True
     $agent setconfig --offline server 127.0.0.1:51001:t
     if [[ "$create_opts" != *"standard"* ]]; then
