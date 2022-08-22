@@ -742,7 +742,7 @@ class ElectrumWindow(App, Logger):
             self.show_error(_('Lightning is not enabled for this wallet'))
             return
         if not self.wallet.lnworker.channels:
-            warning1 = _("Lightning support in Electrum is experimental. "
+            warning1 = _("Lightning support in Electrum-NMC is experimental. "
                          "Do not put large amounts in lightning channels.")
             warning2 = _("Funds stored in lightning channels are not recoverable "
                          "from your seed. You must backup your wallet file everytime "
