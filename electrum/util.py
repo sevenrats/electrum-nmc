@@ -219,6 +219,8 @@ class Fiat(object):
             return "{:.2f}".format(self.value) + ' ' + self.ccy
 
     def __eq__(self, other):
+        if not isinstance(other, Fiat):
+            return False
         if self.ccy != other.ccy:
             return False
         if isinstance(self.value, Decimal) and isinstance(other.value, Decimal) \
@@ -765,6 +767,8 @@ mainnet_block_explorers = {
                         {'tx': 'api/tx?txid=', 'addr': '#/search?q='}),
     'mempool.space': ('https://mempool.space/',
                         {'tx': 'tx/', 'addr': 'address/'}),
+    'mempool.emzy.de': ('https://mempool.emzy.de/',
+                        {'tx': 'tx/', 'addr': 'address/'}),  
     'OXT.me': ('https://oxt.me/',
                         {'tx': 'transaction/', 'addr': 'address/'}),
     'smartbit.com.au': ('https://www.smartbit.com.au/',
