@@ -101,6 +101,7 @@ from .confirm_tx_dialog import ConfirmTxDialog
 from .transaction_dialog import PreviewTxDialog
 
 from .forms.managenamespage import Ui_ManageNamesPage
+from .forms.buynamespage import Ui_BuyNamesPage
 
 if TYPE_CHECKING:
     from . import ElectrumGui
@@ -3328,64 +3329,25 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         self.close()
 
     def create_buy_names_tab(self):
-        self.buy_names_vbox = vbox = QVBoxLayout()
-
-        self.buy_names_new_name_label = QLabel(_("New name:"))
-        vbox.addWidget(self.buy_names_new_name_label)
+        w = QWidget()
+        self.buy_names_ui = Ui_BuyNamesPage()
+        self.buy_names_ui.setupUi(w)
 
         # TODO: allow hex names
-        self.buy_names_new_name_lineedit = QLineEdit()
-        self.buy_names_new_name_lineedit.setToolTip(_("Enter a name to be registered via Namecoin."))
+        self.buy_names_new_name_lineedit = self.buy_names_ui.registerName
         self.buy_names_new_name_lineedit.textChanged.connect(self.update_buy_names_preview)
-        vbox.addWidget(self.buy_names_new_name_lineedit)
 
-        self.buy_names_format_explain_label = QLabel(_("<html><head/><body><p>Use <span style='font-weight:600;'>d/</span> prefix for domain names.  E.g. <span style='font-weight:600;'>d/mysite</span> will register <span style='font-weight:600;'>mysite.bit</span></p><p>See the <a href='https://github.com/namecoin/proposals/blob/master/ifa-0001.md'><span style='text-decoration:underline; color:#0000ff;'>Namecoin Domain Names specification</span></a> for reference.  Other prefixes can be used for miscellaneous purposes (not domain names).</p></body></html>"))
-        self.buy_names_format_explain_label.setTextFormat(Qt.RichText)
-        self.buy_names_format_explain_label.setWordWrap(True)
-        self.buy_names_format_explain_label.setOpenExternalLinks(True)
-        vbox.addWidget(self.buy_names_format_explain_label)
+        self.buy_names_preview_label = self.buy_names_ui.previewLabel
 
-        self.buy_names_preview_label = QLabel(_("Name to register: "))
-        vbox.addWidget(self.buy_names_preview_label)
-
-        self.buy_names_check_name_availability_button = QPushButton(_("Check name availability..."))
-        self.buy_names_check_name_availability_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.buy_names_check_name_availability_button.setMinimumSize(150, 0)
+        self.buy_names_check_name_availability_button = self.buy_names_ui.checkNameButton
         self.buy_names_check_name_availability_button.clicked.connect(self.check_name_availability)
-        vbox.addWidget(self.buy_names_check_name_availability_button)
 
-        self.buy_names_already_exists_vbox = QVBoxLayout()
-        
-        self.buy_names_already_exists_label = QLabel("")
-        self.buy_names_already_exists_label.setWordWrap(True)
-        self.buy_names_already_exists_vbox.addWidget(self.buy_names_already_exists_label)
+        self.buy_names_status_label = self.buy_names_ui.statusLabel
 
-        self.buy_names_already_exists_widget = QWidget()
-        self.buy_names_already_exists_widget.setLayout(self.buy_names_already_exists_vbox)
-        self.buy_names_already_exists_widget.hide()
+        self.buy_names_register_button = self.buy_names_ui.registerNameButton
+        self.buy_names_register_button.clicked.connect(self.register_new_name)
+        self.buy_names_register_button.hide()
 
-        self.buy_names_available_vbox = QVBoxLayout()
-
-        self.buy_names_available_label = QLabel("")
-        self.buy_names_available_label.setWordWrap(True)
-        self.buy_names_available_vbox.addWidget(self.buy_names_available_label)
-
-        self.buy_names_available_register_button = QPushButton(_("Register name..."))
-        self.buy_names_available_register_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.buy_names_available_register_button.setMinimumSize(150, 0)
-        self.buy_names_available_register_button.clicked.connect(self.register_new_name)
-        self.buy_names_available_vbox.addWidget(self.buy_names_available_register_button)
-
-        self.buy_names_available_widget = QWidget()
-        self.buy_names_available_widget.setLayout(self.buy_names_available_vbox)
-        self.buy_names_available_widget.hide()
-
-        vbox.addWidget(self.buy_names_already_exists_widget)
-        vbox.addWidget(self.buy_names_available_widget)
-        vbox.addStretch()
-
-        w = QWidget()
-        w.setLayout(vbox)
         return w
 
     def update_buy_names_preview(self):
@@ -3394,8 +3356,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         identifier_formatted = format_name_identifier(identifier)
         self.buy_names_preview_label.setText(_("Name to register: ") + identifier_formatted)
 
-        self.buy_names_already_exists_widget.hide()
-        self.buy_names_available_widget.hide()
+        self.buy_names_status_label.setText(_(""))
+        self.buy_names_register_button.hide()
 
     def check_name_availability(self):
         # TODO: handle non-ASCII encodings
@@ -3481,40 +3443,32 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             return
 
         if chain_syncing:
-            self.buy_names_available_widget.hide()
-            self.buy_names_already_exists_label.setText(_("The blockchain is still syncing; please wait and then try again."))
-            self.buy_names_already_exists_widget.show()
+            self.buy_names_register_button.hide()
+            self.buy_names_status_label.setText(_("The blockchain is still syncing; please wait and then try again."))
         elif not name_valid:
-            self.buy_names_available_widget.hide()
-            self.buy_names_already_exists_label.setText(_("That name is invalid (probably exceeded the 255-byte limit) and therefore cannot be registered."))
-            self.buy_names_already_exists_widget.show()
+            self.buy_names_register_button.hide()
+            self.buy_names_status_label.setText(_("That name is invalid (probably exceeded the 255-byte limit) and therefore cannot be registered."))
         elif name_mine:
-            self.buy_names_available_widget.hide()
-            self.buy_names_already_exists_label.setText(_("You already own ") + identifier_formatted + _("!"))
-            self.buy_names_already_exists_widget.show()
+            self.buy_names_register_button.hide()
+            self.buy_names_status_label.setText(_("You already own ") + identifier_formatted + _("!"))
         elif name_pending_mine:
-            self.buy_names_available_widget.hide()
-            self.buy_names_already_exists_label.setText(_("You already have a registration pending for ") + identifier_formatted + _("!"))
-            self.buy_names_already_exists_widget.show()
+            self.buy_names_register_button.hide()
+            self.buy_names_status_label.setText(_("You already have a registration pending for ") + identifier_formatted + _("!"))
         elif name_snipe_pending_mine:
-            self.buy_names_available_widget.hide()
-            self.buy_names_already_exists_label.setText(_("You already have a snipe pending for ") + identifier_formatted + _("!  Your snipe will be broadcast if/when the name expires."))
-            self.buy_names_already_exists_widget.show()
+            self.buy_names_register_button.hide()
+            self.buy_names_status_label.setText(_("You already have a snipe pending for ") + identifier_formatted + _("!  Your snipe will be broadcast if/when the name expires."))
         elif name_exists and not name_pending_unverified:
-            self.buy_names_available_widget.hide()
-            self.buy_names_already_exists_label.setText(identifier_formatted + _(" is already registered, sorry!"))
-            self.buy_names_already_exists_widget.show()
+            self.buy_names_register_button.hide()
+            self.buy_names_status_label.setText(identifier_formatted + _(" is already registered, sorry!"))
         elif name_pending_unverified:
-            self.buy_names_already_exists_widget.hide()
+            self.buy_names_register_button.show()
             if name_mine_unverified:
-                self.buy_names_available_label.setText(_("The server reports that you already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  If you believe the server is wrong, you can try to register it, but you may forfeit the name registration fee."))
+                self.buy_names_status_label.setText(_("The server reports that you already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  If you believe the server is wrong, you can try to register it, but you may forfeit the name registration fee."))
             else:
-                self.buy_names_available_label.setText(_("The server reports that someone else already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  If you believe the server is wrong, you can try to register it, but you may forfeit the name registration fee."))
-            self.buy_names_available_widget.show()
+                self.buy_names_status_label.setText(_("The server reports that someone else already registered ") + identifier_formatted + _(" in approximately the past 2 hours, but Electrum-NMC couldn't verify this.  If you believe the server is wrong, you can try to register it, but you may forfeit the name registration fee."))
         else:
-            self.buy_names_already_exists_widget.hide()
-            self.buy_names_available_label.setText(identifier_formatted + _(" is available to register!"))
-            self.buy_names_available_widget.show()
+            self.buy_names_register_button.show()
+            self.buy_names_status_label.setText(identifier_formatted + _(" is available to register!"))
 
     def register_new_name(self):
         # TODO: handle non-ASCII encodings
@@ -3536,8 +3490,6 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         old_uno_list = self.names_ui.verticalLayout.replaceWidget(self.names_ui.tableView, self.names_uno_list)
         self.names_ui.tableView = self.names_uno_list
         old_uno_list.widget().setParent(None)
-
-        self.names_actions_hbox = QHBoxLayout()
 
         self.names_configure_button = self.names_ui.configureNameButton
         self.names_configure_button.clicked.connect(l.configure_selected_item)
