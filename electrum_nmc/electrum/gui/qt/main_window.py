@@ -3366,7 +3366,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         identifier_formatted = format_name_identifier(identifier)
         self.buy_names_preview_label.setText(_("Name to register: ") + identifier_formatted)
 
-        self.buy_names_status_label.setText(_(""))
+        self.buy_names_status_label.setText("")
         self.buy_names_register_button.hide()
         self.buy_names_buy_button.hide()
 
