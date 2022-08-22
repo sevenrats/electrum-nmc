@@ -85,12 +85,16 @@ class LNRater(Logger):
         self._last_progress_percent = 0
 
     def maybe_analyze_graph(self):
-        asyncio.run(self._maybe_analyze_graph())
+        loop = asyncio.get_event_loop()
+        fut = asyncio.run_coroutine_threadsafe(self._maybe_analyze_graph(), loop)
+        fut.result()
 
     def analyze_graph(self):
         """Forces a graph analysis, e.g., due to external triggers like
         the graph info reaching 50%."""
-        asyncio.run(self._analyze_graph())
+        loop = asyncio.get_event_loop()
+        fut = asyncio.run_coroutine_threadsafe(self._analyze_graph(), loop)
+        fut.result()
 
     async def _maybe_analyze_graph(self):
         """Analyzes the graph when in early sync stage (>30%) or when caching
@@ -210,9 +214,11 @@ class LNRater(Logger):
             heuristics = []
             heuristics_weights = []
 
-            # example of how we could construct a scalar score for nodes
-            # this is probably not what we want to to, this is roughly
-            # preferential attachment
+            # Construct an average score which leads to recommendation of nodes
+            # with low fees, large capacity and reasonable number of channels.
+            # This is somewhat akin to preferential attachment, but low fee
+            # nodes are more favored. Here we make a compromise between user
+            # comfort and decentralization, tending towards user comfort.
 
             # number of channels
             heuristics.append(stats.number_channels / max_num_chan)
