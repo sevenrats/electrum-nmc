@@ -63,6 +63,7 @@ class TxWalletDelta(NamedTuple):
     is_any_input_ismine: bool
     is_all_input_ismine: bool
     delta: int
+    delta_display: int
     fee: Optional[int]
 
 
@@ -698,16 +699,19 @@ class AddressSynchronizer(Logger):
         """effect of tx on wallet"""
         is_relevant = False  # "related to wallet?"
         num_input_ismine = 0
-        v_in = v_in_mine = v_out = v_out_mine = 0
+        v_in = v_in_mine = v_in_mine_display = v_out = v_out_mine = v_out_mine_display = 0
         with self.lock, self.transaction_lock:
             for txin in tx.inputs():
                 addr = self.get_txin_address(txin)
                 value = self.get_txin_value(txin, address=addr)
+                value_display = self.get_txin_value(txin, address=addr, display=True)
                 if self.is_mine(addr):
                     num_input_ismine += 1
                     is_relevant = True
                     assert value is not None
                     v_in_mine += value
+                    if value_display is not None:
+                        v_in_mine_display += value_display
                 if value is None:
                     v_in = None
                 elif v_in is not None:
@@ -716,8 +720,10 @@ class AddressSynchronizer(Logger):
                 v_out += txout.value
                 if self.is_mine(txout.address):
                     v_out_mine += txout.value
+                    v_out_mine_display += txout.value_display
                     is_relevant = True
         delta = v_out_mine - v_in_mine
+        delta_display = v_out_mine_display - v_in_mine_display
         if v_in is not None:
             fee = v_in - v_out
         else:
@@ -729,6 +735,7 @@ class AddressSynchronizer(Logger):
             is_any_input_ismine=num_input_ismine > 0,
             is_all_input_ismine=num_input_ismine == len(tx.inputs()),
             delta=delta,
+            delta_display=delta_display,
             fee=fee,
         )
 
