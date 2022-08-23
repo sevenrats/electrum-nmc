@@ -41,7 +41,8 @@ from electrum.wallet import InternalAddressCorruption
 
 from .forms.tradenamedialog import Ui_TradeNameDialog
 from .amountedit import AmountEdit, BTCAmountEdit
-from .util import ButtonsTextEdit, ColorScheme, MessageBoxMixin, MONOSPACE_FONT
+from .qrtextedit import ScanQRTextEdit
+from .util import ButtonsTextEdit, ColorScheme, MessageBoxMixin, MONOSPACE_FONT, TRANSACTION_FILE_EXTENSION_FILTER_SEPARATE, TRANSACTION_FILE_EXTENSION_FILTER_ONLY_COMPLETE_TX
 
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 
@@ -96,8 +97,12 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
 
         self.main_window.connect_fields(self.main_window, self.amount_edit, self.fiat_amount_edit, None)
 
-        self.input_offer = self.ui.inputOffer
+        self.input_offer = ScanQRTextEdit()
+        old_input_offer = self.ui.verticalLayout.replaceWidget(self.ui.inputOffer, self.input_offer)
+        self.ui.inputOffer = self.input_offer
+        old_input_offer.widget().setParent(None)
         self.input_offer.setFont(QFont(MONOSPACE_FONT))
+        self.input_offer.addPasteButton(self.main_window.app)
 
         self.submit_sell_hint = self.ui.labelSubmitSellHint
         self.submit_buy_hint = self.ui.labelSubmitBuyHint
@@ -116,6 +121,8 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.output_offer.addCopyButton(self.main_window.app)
         qr_icon = "qrcode_white.png" if ColorScheme.dark_scheme else "qrcode.png"
         self.output_offer.addButton(qr_icon, lambda: self.show_qr(self.output_offer.toPlainText()), _("Show as QR code"))
+        export_icon = "file.png"
+        self.output_offer.addButton(export_icon, lambda: self.export_to_file(self.output_offer.toPlainText()), _("Export to file"))
 
         self.output_offer_sell_hint = self.ui.labelOutputSellHint
         self.output_offer_buy_hint = self.ui.labelOutputBuyHint
@@ -140,6 +147,26 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
                             _('Offer is too large in size.'))
         except Exception as e:
             self.show_error(_('Failed to display QR code.') + '\n' + repr(e))
+
+    def export_to_file(self, tx_hex: str):
+        tx = Transaction(tx_hex)
+        name = '{} Offer {} {} NMC'.format("Buy" if self.buy else "Sell", format_name_identifier(self.identifier), Decimal(self.amount_edit.get_amount() // COIN))
+        extension = 'txn'
+        default_filter = TRANSACTION_FILE_EXTENSION_FILTER_ONLY_COMPLETE_TX
+        name = f'{name}.{extension}'
+        fileName = self.main_window.getSaveFileName(_("Select where to save your offer"),
+                                                    name,
+                                                    TRANSACTION_FILE_EXTENSION_FILTER_SEPARATE,
+                                                    default_extension=extension,
+                                                    default_filter=default_filter)
+        if not fileName:
+            return
+        with open(fileName, "w+") as f:
+            network_tx_hex = tx.serialize_to_network()
+            f.write(network_tx_hex + '\n')
+
+        self.show_message(_("Offer exported successfully"))
+        self.saved = True
 
     def trade(self, identifier, amount_sat, offer):
         if amount_sat is None:

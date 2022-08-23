@@ -203,7 +203,7 @@
    <item>
     <widget class="QLabel" name="labelOutputSellHint">
      <property name="text">
-         <string notr="true">Publish the above hex Sell Offer wherever a potential buyer might see it.  You can change your mind and revoke your Sell Offer by updating or renewing this name.</string>
+         <string notr="true">Publish the above Sell Offer wherever a potential buyer might see it.  You can change your mind and revoke your Sell Offer by updating or renewing this name.</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -222,7 +222,7 @@
    <item>
     <widget class="QLabel" name="labelOutputBuyHint">
      <property name="text">
-         <string notr="true">Publish the above hex Buy Offer wherever the current name owner might see it.  You can change your mind and revoke your Buy Offer by double-spending the coins used in the offer.</string>
+         <string notr="true">Publish the above Buy Offer wherever the current name owner might see it.  You can change your mind and revoke your Buy Offer by double-spending the coins used in the offer.</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>

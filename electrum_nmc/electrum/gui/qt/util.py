@@ -968,13 +968,14 @@ def get_parent_main_window(
     from .main_window import ElectrumWindow
     from .transaction_dialog import TxDialog
     from .configure_name_dialog import ConfigureNameDialog
+    from .trade_name_dialog import TradeNameDialog
     from .installwizard import InstallWizard
     for _ in range(100):
         if widget is None:
             return None
         if isinstance(widget, ElectrumWindow):
             return widget
-        if isinstance(widget, (TxDialog, ConfigureNameDialog)):
+        if isinstance(widget, (TxDialog, ConfigureNameDialog, TradeNameDialog)):
             return widget.main_window
         if isinstance(widget, InstallWizard) and allow_wizard:
             return widget
