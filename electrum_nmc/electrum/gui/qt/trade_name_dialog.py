@@ -35,12 +35,13 @@ from electrum.bitcoin import COIN
 from electrum.i18n import _
 from electrum.names import format_name_identifier, format_name_identifier_split
 from electrum.network import TxBroadcastError, BestEffortRequestFailed
+from electrum.transaction import Transaction
 from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates, is_hex_str
 from electrum.wallet import InternalAddressCorruption
 
 from .forms.tradenamedialog import Ui_TradeNameDialog
 from .amountedit import AmountEdit, BTCAmountEdit
-from .util import MessageBoxMixin
+from .util import ButtonsTextEdit, ColorScheme, MessageBoxMixin, MONOSPACE_FONT
 
 dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 
@@ -96,6 +97,8 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.main_window.connect_fields(self.main_window, self.amount_edit, self.fiat_amount_edit, None)
 
         self.input_offer = self.ui.inputOffer
+        self.input_offer.setFont(QFont(MONOSPACE_FONT))
+
         self.submit_sell_hint = self.ui.labelSubmitSellHint
         self.submit_buy_hint = self.ui.labelSubmitBuyHint
         if buy:
@@ -105,7 +108,15 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
             self.submit_sell_hint.show()
             self.submit_buy_hint.hide()
 
-        self.output_offer = self.ui.outputOffer
+        self.output_offer = ButtonsTextEdit()
+        old_output_offer = self.ui.verticalLayout.replaceWidget(self.ui.outputOffer, self.output_offer)
+        self.ui.outputOffer = self.output_offer
+        old_output_offer.widget().setParent(None)
+        self.output_offer.setFont(QFont(MONOSPACE_FONT))
+        self.output_offer.addCopyButton(self.main_window.app)
+        qr_icon = "qrcode_white.png" if ColorScheme.dark_scheme else "qrcode.png"
+        self.output_offer.addButton(qr_icon, lambda: self.show_qr(self.output_offer.toPlainText()), _("Show as QR code"))
+
         self.output_offer_sell_hint = self.ui.labelOutputSellHint
         self.output_offer_buy_hint = self.ui.labelOutputBuyHint
         self.hide_output_offer()
@@ -118,6 +129,17 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.output_offer.hide()
         self.output_offer_sell_hint.hide()
         self.output_offer_buy_hint.hide()
+
+    def show_qr(self, tx_hex: str):
+        tx = Transaction(tx_hex)
+        qr_data = tx.to_qr_data()
+        try:
+            self.main_window.show_qrcode(qr_data, _('Buy Offer') if self.buy else _('Sell Offer'), parent=self)
+        except qrcode.exceptions.DataOverflowError:
+            self.show_error(_('Failed to display QR code.') + '\n' +
+                            _('Offer is too large in size.'))
+        except Exception as e:
+            self.show_error(_('Failed to display QR code.') + '\n' + repr(e))
 
     def trade(self, identifier, amount_sat, offer):
         if amount_sat is None:
