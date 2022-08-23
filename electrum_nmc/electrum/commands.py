@@ -390,6 +390,10 @@ class Commands:
         name_encoding = Encoding(name_encoding)
         value_encoding = Encoding(value_encoding)
 
+        identifier_bytes = None
+        if identifier is not None:
+            identifier_bytes = name_from_str(identifier, name_encoding)
+
         coins = await self.listunspent(wallet=wallet)
 
         result = []
@@ -404,15 +408,15 @@ class Commands:
                 continue
 
             name_bytes = bfh(name_op["name"])
-            name = name_to_str(name_bytes, name_encoding)
-
             value_bytes = bfh(name_op["value"])
-            value = name_to_str(value_bytes, value_encoding)
 
             # Skip this item if it doesn't match the requested identifier
-            if identifier is not None:
-                if identifier != name:
+            if identifier_bytes is not None:
+                if identifier_bytes != name_bytes:
                     continue
+
+            name = name_to_str(name_bytes, name_encoding)
+            value = name_to_str(value_bytes, value_encoding)
 
             txid = coin["prevout_hash"]
             vout = coin["prevout_n"]
