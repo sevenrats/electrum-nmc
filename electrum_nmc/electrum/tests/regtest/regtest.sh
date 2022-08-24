@@ -706,10 +706,10 @@ if [[ $1 == "name_ant_workflow" ]]; then
     assert_equal "false" "$(echo $data_bob | jq -r .ismine)" "Newly registered Alice name belongs to Bob"
 
     echo "Alice sells to Bob"
-    offer=$($alice name_sell x/name --amount 0.02)
-    assert_raises_error "$bob name_buy x/name --amount 0.03 --value value2 --offer $offer" "price mismatch"
-    assert_raises_error "$bob name_buy x/name2 --amount 0.02 --value value2 --offer $offer" "name identifier mismatch"
-    completed_offer=$($bob name_buy x/name --amount 0.02 --value value2 --offer $offer)
+    offer=$($alice name_sell x/name 0.02)
+    assert_raises_error "$bob name_buy x/name 0.03 --value value2 --offer $offer" "price mismatch"
+    assert_raises_error "$bob name_buy x/name2 0.02 --value value2 --offer $offer" "name identifier mismatch"
+    completed_offer=$($bob name_buy x/name 0.02 --value value2 --offer $offer)
     $bob broadcast $completed_offer
     sleep 5s
     new_blocks 12
@@ -721,10 +721,10 @@ if [[ $1 == "name_ant_workflow" ]]; then
     assert_equal "true" "$(echo $data_bob | jq -r .ismine)" "Transferred Bob name doesn't belong to Bob"
 
     echo "Alice buys from Bob"
-    offer=$($alice name_buy x/name --amount 0.02 --value value3)
-    assert_raises_error "$bob name_sell x/name --amount 0.03 --offer $offer" "price mismatch"
-    assert_raises_error "$bob name_sell x/name2 --amount 0.02 --offer $offer" "name identifier mismatch"
-    completed_offer=$($bob name_sell x/name --amount 0.02 --offer $offer)
+    offer=$($alice name_buy x/name 0.02 --value value3)
+    assert_raises_error "$bob name_sell x/name 0.03 --offer $offer" "price mismatch"
+    assert_raises_error "$bob name_sell x/name2 0.02 --offer $offer" "name identifier mismatch"
+    completed_offer=$($bob name_sell x/name 0.02 --offer $offer)
     $bob broadcast $completed_offer
     sleep 5s
     new_blocks 12
