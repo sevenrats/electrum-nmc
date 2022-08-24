@@ -72,19 +72,7 @@
        </property>
       </widget>
      </item>
-     <!--
      <item row="5" column="1">
-      <widget class="QLabel" name="label_4">
-       <property name="text">
-        <string>JSON string, e.g. {&amp;quot;ip&amp;quot;: [&amp;quot;1.2.3.4&amp;quot;, &amp;quot;1.2.3.5&amp;quot;]}&lt;br&gt;See &lt;a href=&quot;https://github.com/namecoin/proposals&quot;&gt;JSON value specifications&lt;/a&gt;.</string>
-       </property>
-       <property name="openExternalLinks">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     -->
-     <item row="6" column="1">
       <spacer name="verticalSpacer">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
@@ -97,7 +85,64 @@
        </property>
       </spacer>
      </item>
-     <item row="7" column="0">
+     <item row="6" column="0">
+      <widget class="QLabel" name="dataLabel">
+       <property name="text">
+        <string>&amp;Data:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+       </property>
+       <property name="buddy">
+        <cstring>dataEdit</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1">
+      <layout class="QHBoxLayout" name="dataEditHorizontalLayout">
+       <item>
+        <widget class="QLineEdit" name="dataEdit">
+         <property name="toolTip">
+          <string>Enter JSON string that will be associated with the name</string>
+         </property>
+         <property name="maxLength">
+          <number>520</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnDNSEditor">
+         <property name="text">
+          <string>DNS Editor&#8230;</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="7" column="1">
+      <widget class="QLabel" name="dataHintLabel">
+       <property name="text">
+        <string>JSON string, e.g. {&amp;quot;ip&amp;quot;: [&amp;quot;1.2.3.4&amp;quot;, &amp;quot;1.2.3.5&amp;quot;]}&lt;br&gt;See &lt;a href=&quot;https://github.com/namecoin/proposals&quot;&gt;JSON value specifications&lt;/a&gt;.</string>
+       </property>
+       <property name="openExternalLinks">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>16</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="9" column="0">
       <widget class="QLabel" name="labelOffer">
        <property name="text">
         <string>&amp;Buy Offer to accept:</string>
@@ -107,7 +152,7 @@
        </property>
       </widget>
      </item>
-     <item row="7" column="1">
+     <item row="9" column="1">
       <layout class="QHBoxLayout" name="offerLayout">
        <property name="spacing">
         <number>0</number>
@@ -122,7 +167,7 @@
       </layout>
      </item>
      <!--
-     <item row="8" column="1">
+     <item row="10" column="1">
       <widget class="QLabel" name="labelOfferHint">
        <property name="text">
         <string>(Leave empty if creating a new offer.)</string>

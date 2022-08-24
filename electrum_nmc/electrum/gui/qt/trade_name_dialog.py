@@ -33,7 +33,7 @@ from PyQt5.QtWidgets import *
 
 from electrum.bitcoin import COIN
 from electrum.i18n import _
-from electrum.names import format_name_identifier, format_name_identifier_split
+from electrum.names import format_name_identifier, format_name_identifier_split, identifier_to_namespace
 from electrum.network import TxBroadcastError, BestEffortRequestFailed
 from electrum.transaction import Transaction
 from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates, is_hex_str
@@ -41,6 +41,7 @@ from electrum.wallet import InternalAddressCorruption
 
 from .forms.tradenamedialog import Ui_TradeNameDialog
 from .amountedit import AmountEdit, BTCAmountEdit
+from .configure_dns_dialog import show_configure_dns
 from .qrtextedit import ScanQRTextEdit
 from .util import ButtonsTextEdit, ColorScheme, MessageBoxMixin, MONOSPACE_FONT, TRANSACTION_FILE_EXTENSION_FILTER_SEPARATE, TRANSACTION_FILE_EXTENSION_FILTER_ONLY_COMPLETE_TX
 
@@ -77,7 +78,8 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.identifier = identifier
         self.buy = buy
 
-        self.ui.buttonBox.accepted.connect(lambda: self.trade(self.identifier, self.amount_edit.get_amount(), self.input_offer.toPlainText()))
+        # TODO: handle non-ASCII encodings
+        self.ui.buttonBox.accepted.connect(lambda: self.trade(self.identifier, self.ui.dataEdit.text().encode('ascii'), self.amount_edit.get_amount(), self.input_offer.toPlainText()))
 
         formatted_name_split = format_name_identifier_split(self.identifier)
         self.ui.labelNamespace.setText(formatted_name_split.category + ":")
@@ -107,11 +109,24 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.submit_sell_hint = self.ui.labelSubmitSellHint
         self.submit_buy_hint = self.ui.labelSubmitBuyHint
         if buy:
+            self.set_value(value)
+
             self.submit_sell_hint.hide()
             self.submit_buy_hint.show()
+
+            self.namespace = identifier_to_namespace(self.identifier)
+            self.namespace_is_dns = self.namespace in ["d", "dd"]
+
+            self.ui.btnDNSEditor.setVisible(self.namespace_is_dns)
+            self.ui.btnDNSEditor.clicked.connect(lambda: show_configure_dns(self.ui.dataEdit.text().encode('ascii'), self))
         else:
             self.submit_sell_hint.show()
             self.submit_buy_hint.hide()
+
+            self.ui.dataLabel.hide()
+            self.ui.dataEdit.hide()
+            self.ui.btnDNSEditor.hide()
+            self.ui.dataHintLabel.hide()
 
         self.output_offer = ButtonsTextEdit()
         old_output_offer = self.ui.verticalLayout.replaceWidget(self.ui.outputOffer, self.output_offer)
@@ -130,6 +145,10 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
 
         self.amount_edit.textChanged.connect(self.hide_output_offer)
         self.input_offer.textChanged.connect(self.hide_output_offer)
+
+    def set_value(self, value):
+        # TODO: support non-ASCII encodings
+        self.ui.dataEdit.setText(value.decode('ascii'))
 
     def hide_output_offer(self):
         self.output_offer.setPlainText("")
@@ -168,16 +187,14 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.show_message(_("Offer exported successfully"))
         self.saved = True
 
-    def trade(self, identifier, amount_sat, offer):
+    def trade(self, identifier, value, amount_sat, offer):
         if amount_sat is None:
             self.show_error(_("Amount is blank"))
             return
         amount = Decimal(amount_sat)/COIN
 
-        if self.buy:
-            name_trade = self.main_window.console.namespace.get('name_buy')
-        else:
-            name_trade = self.main_window.console.namespace.get('name_sell')
+        name_buy = self.main_window.console.namespace.get('name_buy')
+        name_sell = self.main_window.console.namespace.get('name_sell')
         broadcast = self.main_window.console.namespace.get('broadcast')
 
         offer = offer.replace(" ", "")
@@ -201,8 +218,12 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
             error_message = _("Error selling {}: {}")
 
         try:
-            # TODO: support non-ASCII encodings
-            result = name_trade(identifier.decode('ascii'), amount=amount, offer=offer)
+            if self.buy:
+                # TODO: support non-ASCII encodings
+                result = name_buy(identifier.decode('ascii'), value=value.decode('ascii'), amount=amount, offer=offer)
+            else:
+                # TODO: support non-ASCII encodings
+                result = name_sell(identifier.decode('ascii'), amount=amount, offer=offer)
         except (NotEnoughFunds, NoDynamicFeeEstimates) as e:
             formatted_name = format_name_identifier(identifier)
             self.show_error(error_message.format(formatted_name, str(e)))

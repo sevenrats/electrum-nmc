@@ -3344,6 +3344,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         self.buy_names_new_name_lineedit = self.buy_names_ui.registerName
         self.buy_names_new_name_lineedit.textChanged.connect(self.update_buy_names_preview)
 
+        self.buy_names_value_ascii = ''
+
         self.buy_names_preview_label = self.buy_names_ui.previewLabel
 
         self.buy_names_check_name_availability_button = self.buy_names_ui.checkNameButton
@@ -3381,6 +3383,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         name_list = self.console.namespace.get('name_list')
         name_show = self.console.namespace.get('name_show')
 
+        self.buy_names_value_ascii = ''
+
         name_exists = True
         name_pending_mine = False
         name_snipe_pending_mine = False
@@ -3392,11 +3396,12 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         try:
             # First we try looking up the name in the local wallet via
             # name_list.
-            name_list_result = name_list(identifier=identifier_ascii, wallet=self.wallet)
+            name_list_result = name_list(identifier=identifier_ascii, name_encoding="ascii", value_encoding="ascii", wallet=self.wallet)
             for name_list_item in name_list_result:
                 # We should only have 0 or 1 items.
                 if not name_list_item["expired"] and name_list_item["ismine"]:
                     # Name item purports to be active and mine.
+                    self.buy_names_value_ascii = name_list_item["value"]
                     chain_height = self.network.get_local_height()
                     mature_in = name_new_mature_in(name_list_item["height"], chain_height)
                     if mature_in is not None and mature_in <= 0:
@@ -3436,6 +3441,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             # name_show.
             if not name_mine and not name_pending_mine and not name_snipe_pending_mine:
                 name_show_result = name_show(identifier_ascii, wallet=self.wallet)
+                self.buy_names_value_ascii = name_show_result["value"]
                 name_mine = name_show_result["ismine"]
         except commands.NameUnconfirmedError:
             name_pending_unverified = True
@@ -3505,7 +3511,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         identifier = identifier_ascii.encode('ascii')
 
         # TODO: use existing value
-        initial_value = b''
+        initial_value = self.buy_names_value_ascii.encode('ascii')
 
         show_trade_name(identifier, initial_value, self, buy=True)
 
