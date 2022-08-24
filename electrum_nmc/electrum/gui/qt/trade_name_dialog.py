@@ -274,7 +274,7 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
                 result = name_buy(identifier.decode('ascii'), value=value.decode('ascii'), amount=amount, destination=recipient_address, offer=offer)
             else:
                 # TODO: support non-ASCII encodings
-                result = name_sell(identifier.decode('ascii'), amount=amount, offer=offer)
+                result = name_sell(identifier.decode('ascii'), requested_amount=amount, offer=offer)
         except (NotEnoughFunds, NoDynamicFeeEstimates) as e:
             formatted_name = format_name_identifier(identifier)
             self.show_error(error_message.format(formatted_name, str(e)))
