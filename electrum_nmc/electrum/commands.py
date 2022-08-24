@@ -1064,7 +1064,7 @@ class Commands:
         await self.broadcast(new_tx, stream_id=stream_id)
 
     @command('wpn')
-    async def name_buy(self, identifier, offer=None, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_buy(self, identifier, amount, offer=None, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Buy an existing name from the current owner."""
 
         self.nocheck = nocheck
@@ -1107,8 +1107,6 @@ class Commands:
         if offer is None and len(outputs) > 0:
             raise Exception("Extra outputs not allowed when creating trade offer")
 
-        if amount == 0.0:
-            raise Exception("Must specify amount")
         amount_sat = satoshis(amount)
 
         if offer is not None:
@@ -1123,9 +1121,12 @@ class Commands:
             offer_output_name_op = offer_output.name_op
             if offer_output_name_op is not None:
                 raise Exception("Sell offer output must be currency")
+            # Annoyingly, we can't use the wallet.get_txin_value helper
+            # function, because it only handles inputs that are in the local
+            # wallet; this may not be the case for trades.
             offer_input = offer.inputs()[0]
             offer_input_outpoint = offer_input.prevout.to_json()
-            offer_input_tx = await self.gettransaction(offer_input_outpoint[0])
+            offer_input_tx = await self.gettransaction(offer_input_outpoint[0], wallet=wallet)
             offer_input_tx = Transaction(offer_input_tx)
             offer_input_output = offer_input_tx.outputs()[offer_input_outpoint[1]]
             offer_input_name_op = offer_input_output.name_op
@@ -1224,7 +1225,7 @@ class Commands:
         return tx.serialize()
 
     @command('wpn')
-    async def name_sell(self, identifier, offer=None, name_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_sell(self, identifier, requested_amount, offer=None, name_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Sell a name you currently own."""
 
         self.nocheck = nocheck
@@ -1248,8 +1249,7 @@ class Commands:
         if offer is None and len(outputs) > 0:
             raise Exception("Extra outputs not allowed when creating trade offer")
 
-        if amount == 0.0:
-            raise Exception("Must specify amount")
+        amount = requested_amount
         amount_sat = satoshis(amount)
 
         if offer is not None:
@@ -1264,9 +1264,12 @@ class Commands:
             offer_output_name_op = offer_output.name_op
             if offer_output_name_op is None:
                 raise Exception("Buy offer output must be name operation")
+            # Annoyingly, we can't use the wallet.get_txin_value helper
+            # function, because it only handles inputs that are in the local
+            # wallet; this may not be the case for trades.
             offer_input = offer.inputs()[0]
             offer_input_outpoint = offer_input.prevout.to_json()
-            offer_input_tx = await self.gettransaction(offer_input_outpoint[0])
+            offer_input_tx = await self.gettransaction(offer_input_outpoint[0], wallet=wallet)
             offer_input_tx = Transaction(offer_input_tx)
             offer_input_output = offer_input_tx.outputs()[offer_input_outpoint[1]]
             offer_input_name_op = offer_input_output.name_op
