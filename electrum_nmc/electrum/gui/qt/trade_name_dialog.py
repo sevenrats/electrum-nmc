@@ -246,6 +246,21 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
             offer = None
 
         if offer is None and self.output_offer.toPlainText() != "":
+            # Freeze input
+            result_offer_tx = Transaction(self.output_offer.toPlainText())
+            result_offer_input = result_offer_tx.inputs()[0]
+            result_offer_address = self.wallet.get_txin_address(result_offer_input)
+            self.wallet.set_frozen_state_of_addresses([result_offer_address], True)
+
+            # Set label
+            label = self.wallet.get_label(result_offer_address)
+            if self.buy:
+                label += _(" (reserved for Buy Offer: {})".format(format_name_identifier(identifier)))
+            else:
+                label += _(" (reserved for Sell Offer)")
+            self.wallet.set_label(result_offer_address, label)
+
+            self.accept()
             return
 
         if self.buy:

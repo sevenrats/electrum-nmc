@@ -304,7 +304,7 @@
    <item>
     <widget class="QLabel" name="labelOutputSellHint">
      <property name="text">
-         <string notr="true">Publish the above Sell Offer wherever a potential buyer might see it.  You can change your mind and revoke your Sell Offer by updating or renewing this name.</string>
+         <string notr="true">Publish the above Sell Offer wherever a potential buyer might see it.  Once you've published it, click OK to freeze this name so that the Sell Offer stays valid.  You can change your mind and revoke your Sell Offer by unfreezing this name and then updating or renewing it.  If you want to update or renew this name while waiting for a buyer, you will need to unfreeze it first and then re-create and re-publish the Sell Offer after issuing the update.</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -323,7 +323,7 @@
    <item>
     <widget class="QLabel" name="labelOutputBuyHint">
      <property name="text">
-         <string notr="true">Publish the above Buy Offer wherever the current name owner might see it.  You can change your mind and revoke your Buy Offer by double-spending the coins used in the offer.</string>
+         <string notr="true">Publish the above Buy Offer wherever the current name owner might see it.  Once you've published it, click OK to freeze the coins that you used for this Buy Offer so that the Buy Offer stays valid.  You can change your mind and revoke your Buy Offer by unfreezing the coins used in this Buy Offer and then spending them.</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
