@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>545</width>
-    <height>500</height>
+    <height>550</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -73,7 +73,7 @@
       </widget>
      </item>
      <item row="5" column="1">
-      <spacer name="verticalSpacer">
+      <spacer name="verticalSpacerAmountData">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
@@ -130,7 +130,7 @@
       </widget>
      </item>
      <item row="8" column="1">
-      <spacer name="verticalSpacer">
+      <spacer name="verticalSpacerDataTransferTo">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
@@ -143,6 +143,50 @@
       </spacer>
      </item>
      <item row="9" column="0">
+      <widget class="QLabel" name="labelTransferTo">
+       <property name="text">
+        <string>&amp;Transfer to:</string>
+       </property>
+       <property name="buddy">
+        <cstring>transferTo</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="1">
+      <layout class="QHBoxLayout" name="transferToLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="sizeConstraint">
+        <enum>QLayout::SetDefaultConstraint</enum>
+       </property>
+       <item>
+        <widget class="QPayToEdit" name="transferTo">
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="10" column="1">
+      <widget class="QLabel" name="labelTransferToHint">
+       <property name="text">
+        <string>(Leave empty if not transferring.)</string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="1">
+      <spacer name="verticalSpacerTransferToOffer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>16</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="12" column="0">
       <widget class="QLabel" name="labelOffer">
        <property name="text">
         <string>&amp;Buy Offer to accept:</string>
@@ -152,7 +196,7 @@
        </property>
       </widget>
      </item>
-     <item row="9" column="1">
+     <item row="12" column="1">
       <layout class="QHBoxLayout" name="offerLayout">
        <property name="spacing">
         <number>0</number>
@@ -162,12 +206,18 @@
        </property>
        <item>
         <widget class="QPlainTextEdit" name="inputOffer">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>50</height>
+          </size>
+         </property>
         </widget>
        </item>
       </layout>
      </item>
      <!--
-     <item row="10" column="1">
+     <item row="13" column="1">
       <widget class="QLabel" name="labelOfferHint">
        <property name="text">
         <string>(Leave empty if creating a new offer.)</string>
@@ -237,6 +287,12 @@
    </item>
    <item>
     <widget class="QPlainTextEdit" name="outputOffer">
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>50</height>
+      </size>
+     </property>
      <property name="plainText">
          <string>0123456789abcdef</string>
      </property>

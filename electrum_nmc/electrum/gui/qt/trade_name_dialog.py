@@ -79,7 +79,7 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.buy = buy
 
         # TODO: handle non-ASCII encodings
-        self.ui.buttonBox.accepted.connect(lambda: self.trade(self.identifier, self.ui.dataEdit.text().encode('ascii'), self.amount_edit.get_amount(), self.input_offer.toPlainText()))
+        self.ui.buttonBox.accepted.connect(lambda: self.trade(self.identifier, self.ui.dataEdit.text().encode('ascii'), self.amount_edit.get_amount(), self.ui.transferTo, self.input_offer.toPlainText()))
 
         formatted_name_split = format_name_identifier_split(self.identifier)
         self.ui.labelNamespace.setText(formatted_name_split.category + ":")
@@ -100,6 +100,7 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.main_window.connect_fields(self.main_window, self.amount_edit, self.fiat_amount_edit, None)
 
         self.input_offer = ScanQRTextEdit()
+        self.input_offer.setMaximumHeight(self.ui.inputOffer.maximumHeight())
         old_input_offer = self.ui.verticalLayout.replaceWidget(self.ui.inputOffer, self.input_offer)
         self.ui.inputOffer = self.input_offer
         old_input_offer.widget().setParent(None)
@@ -109,8 +110,6 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.submit_sell_hint = self.ui.labelSubmitSellHint
         self.submit_buy_hint = self.ui.labelSubmitBuyHint
         if buy:
-            self.set_value(value)
-
             self.submit_sell_hint.hide()
             self.submit_buy_hint.show()
 
@@ -128,7 +127,13 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
             self.ui.btnDNSEditor.hide()
             self.ui.dataHintLabel.hide()
 
+            self.ui.labelTransferTo.hide()
+            self.ui.transferTo.hide()
+            self.ui.labelTransferToHint.hide()
+
         self.output_offer = ButtonsTextEdit()
+        self.output_offer.setReadOnly(self.ui.outputOffer.isReadOnly())
+        self.output_offer.setMaximumHeight(self.ui.outputOffer.maximumHeight())
         old_output_offer = self.ui.verticalLayout.replaceWidget(self.ui.outputOffer, self.output_offer)
         self.ui.outputOffer = self.output_offer
         old_output_offer.widget().setParent(None)
@@ -143,12 +148,18 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.output_offer_buy_hint = self.ui.labelOutputBuyHint
         self.hide_output_offer()
 
+        if buy:
+            self.set_value(value)
+
         self.amount_edit.textChanged.connect(self.hide_output_offer)
         self.input_offer.textChanged.connect(self.hide_output_offer)
+        self.ui.dataEdit.textChanged.connect(self.hide_output_offer)
+        self.ui.transferTo.textChanged.connect(self.hide_output_offer)
 
     def set_value(self, value):
         # TODO: support non-ASCII encodings
         self.ui.dataEdit.setText(value.decode('ascii'))
+        self.hide_output_offer()
 
     def hide_output_offer(self):
         self.output_offer.setPlainText("")
@@ -187,11 +198,36 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         self.show_message(_("Offer exported successfully"))
         self.saved = True
 
-    def trade(self, identifier, value, amount_sat, offer):
+    def get_transfer_address(self, transfer_to):
+        if transfer_to.toPlainText() == "":
+            # User left the recipient blank, so this isn't a transfer.
+            return None
+        else:
+            # The user entered something into the recipient text box.
+
+            recipient_outputs = transfer_to.get_outputs(False)
+            if recipient_outputs is None:
+                return False
+            if len(recipient_outputs) != 1:
+                self.show_error(_("You must enter one transfer address, or leave the transfer field empty."))
+                return False
+
+            recipient_address = recipient_outputs[0].address
+            if recipient_address is None:
+                self.show_error(_("Invalid address ") + recipient_address)
+                return False
+
+            return recipient_address
+
+    def trade(self, identifier, value, amount_sat, transfer_to, offer):
         if amount_sat is None:
             self.show_error(_("Amount is blank"))
             return
         amount = Decimal(amount_sat)/COIN
+
+        recipient_address = self.get_transfer_address(transfer_to)
+        if recipient_address == False:
+            return
 
         name_buy = self.main_window.console.namespace.get('name_buy')
         name_sell = self.main_window.console.namespace.get('name_sell')
@@ -220,7 +256,7 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
         try:
             if self.buy:
                 # TODO: support non-ASCII encodings
-                result = name_buy(identifier.decode('ascii'), value=value.decode('ascii'), amount=amount, offer=offer)
+                result = name_buy(identifier.decode('ascii'), value=value.decode('ascii'), amount=amount, destination=recipient_address, offer=offer)
             else:
                 # TODO: support non-ASCII encodings
                 result = name_sell(identifier.decode('ascii'), amount=amount, offer=offer)
