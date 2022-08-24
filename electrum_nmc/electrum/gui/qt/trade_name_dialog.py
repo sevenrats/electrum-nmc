@@ -180,7 +180,7 @@ class TradeNameDialog(QDialog, MessageBoxMixin):
 
     def export_to_file(self, tx_hex: str):
         tx = Transaction(tx_hex)
-        name = '{} Offer {} {} NMC'.format("Buy" if self.buy else "Sell", format_name_identifier(self.identifier), Decimal(self.amount_edit.get_amount() // COIN))
+        name = '{} Offer {} {} NMC'.format("Buy" if self.buy else "Sell", format_name_identifier(self.identifier), Decimal(self.amount_edit.get_amount()) / COIN)
         extension = 'txn'
         default_filter = TRANSACTION_FILE_EXTENSION_FILTER_ONLY_COMPLETE_TX
         name = f'{name}.{extension}'
