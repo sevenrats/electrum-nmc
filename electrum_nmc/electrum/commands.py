@@ -1135,13 +1135,7 @@ class Commands:
             if offer_input_name_op["name"] != identifier_bytes:
                 raise Exception("Sell offer input name identifier mismatch")
             offer_amount_sat = offer_output.value_display - offer_input_output.value_display
-            # We check for an exact match to avoid surprising the user.
-            # Surprises could be mismatches that cost the user money, but could
-            # also be mismatches that unintentionally benefit the user.  The
-            # latter might be undesirable e.g. if the user is friends with the
-            # counterparty and wants to notify their friend that they
-            # fat-fingered a price.
-            if offer_amount_sat != amount_sat:
+            if offer_amount_sat > amount_sat:
                 raise Exception("Sell offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
 
             # Currency output from counterparty
@@ -1278,13 +1272,7 @@ class Commands:
             if offer_output_name_op["name"] != identifier_bytes:
                 raise Exception("Buy offer output name identifier mismatch")
             offer_amount_sat = offer_input_output.value_display - offer_output.value_display
-            # We check for an exact match to avoid surprising the user.
-            # Surprises could be mismatches that cost the user money, but could
-            # also be mismatches that unintentionally benefit the user.  The
-            # latter might be undesirable e.g. if the user is friends with the
-            # counterparty and wants to notify their friend that they
-            # fat-fingered a price.
-            if offer_amount_sat != amount_sat:
+            if offer_amount_sat < amount_sat:
                 raise Exception("Buy offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
 
             # Name output from counterparty
