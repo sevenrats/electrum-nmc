@@ -104,6 +104,11 @@ class NotEnoughFunds(Exception):
         return _("Insufficient funds")
 
 
+class NotEnoughAnonymousFunds(NotEnoughFunds):
+    def __str__(self):
+        return _("Insufficient anonymous funds.  If pseudonymity is acceptable, try the 'pseudonymous_identifier' option in the console.")
+
+
 class NoDynamicFeeEstimates(Exception):
     def __str__(self):
         return _('Dynamic fee estimates not available')

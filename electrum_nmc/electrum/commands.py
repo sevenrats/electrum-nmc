@@ -41,7 +41,7 @@ from typing import Optional, TYPE_CHECKING, Dict, List
 
 from .import util, ecc
 from .util import (bfh, bh2u, format_satoshis, json_decode, json_normalize,
-                   is_hash256_str, is_hex_str, to_bytes)
+                   is_hash256_str, is_hex_str, NotEnoughAnonymousFunds, NotEnoughFunds, to_bytes)
 from . import bitcoin
 from .bitcoin import is_address,  hash_160, COIN
 from .bip32 import BIP32Node
@@ -792,6 +792,7 @@ class Commands:
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
+        non_anonymous_domain_addr = domain_addr
         if self.config.get_anonymity_enabled() and identifier is not None:
             if pseudonymous_identifier is None:
                 pseudonymous_identifier = identifier
@@ -833,17 +834,31 @@ class Commands:
         name_output.add_name_op(name_op)
         final_outputs.append(name_output)
 
-        tx = wallet.create_transaction(
-            final_outputs,
-            fee=tx_fee,
-            feerate=feerate,
-            change_addr=change_addr,
-            domain_addr=domain_addr,
-            domain_coins=domain_coins,
-            unsigned=unsigned,
-            rbf=rbf,
-            password=password,
-            locktime=locktime)
+        try:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=change_addr,
+                domain_addr=domain_addr,
+                domain_coins=domain_coins,
+                unsigned=unsigned,
+                rbf=rbf,
+                password=password,
+                locktime=locktime)
+        except NotEnoughFunds:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=change_addr,
+                domain_addr=non_anonymous_domain_addr,
+                domain_coins=domain_coins,
+                unsigned=unsigned,
+                rbf=rbf,
+                password=password,
+                locktime=locktime)
+            raise NotEnoughAnonymousFunds()
         return {"tx": tx.serialize(), "txid": tx.txid(), "salt": salt_hex, "commitment": commitment}
 
     @command('wp')
@@ -860,6 +875,7 @@ class Commands:
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
+        non_anonymous_domain_addr = domain_addr
         if self.config.get_anonymity_enabled() and identifier is not None:
             if pseudonymous_identifier is None:
                 pseudonymous_identifier = identifier
@@ -932,18 +948,33 @@ class Commands:
         name_output.add_name_op(name_op)
         final_outputs.append(name_output)
 
-        tx = wallet.create_transaction(
-            final_outputs,
-            fee=tx_fee,
-            feerate=feerate,
-            change_addr=change_addr,
-            domain_addr=domain_addr,
-            domain_coins=domain_coins,
-            unsigned=unsigned,
-            rbf=rbf,
-            password=password,
-            locktime=locktime,
-            name_input_txids=[name_new_txid])
+        try:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=change_addr,
+                domain_addr=domain_addr,
+                domain_coins=domain_coins,
+                unsigned=unsigned,
+                rbf=rbf,
+                password=password,
+                locktime=locktime,
+                name_input_txids=[name_new_txid])
+        except NotEnoughFunds:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=change_addr,
+                domain_addr=non_anonymous_domain_addr,
+                domain_coins=domain_coins,
+                unsigned=unsigned,
+                rbf=rbf,
+                password=password,
+                locktime=locktime,
+                name_input_txids=[name_new_txid])
+            raise NotEnoughAnonymousFunds()
         return tx.serialize()
 
     @command('wpn')
@@ -961,6 +992,7 @@ class Commands:
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
+        non_anonymous_domain_addr = domain_addr
         if self.config.get_anonymity_enabled() and identifier is not None:
             if pseudonymous_identifier is None:
                 pseudonymous_identifier = identifier
@@ -1011,18 +1043,33 @@ class Commands:
         name_output.add_name_op(name_op)
         final_outputs.append(name_output)
 
-        tx = wallet.create_transaction(
-            final_outputs,
-            fee=tx_fee,
-            feerate=feerate,
-            change_addr=change_addr,
-            domain_addr=domain_addr,
-            domain_coins=domain_coins,
-            unsigned=unsigned,
-            rbf=rbf,
-            password=password,
-            locktime=locktime,
-            name_input_identifiers=[identifier_bytes])
+        try:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=change_addr,
+                domain_addr=domain_addr,
+                domain_coins=domain_coins,
+                unsigned=unsigned,
+                rbf=rbf,
+                password=password,
+                locktime=locktime,
+                name_input_identifiers=[identifier_bytes])
+        except NotEnoughFunds:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=change_addr,
+                domain_addr=non_anonymous_domain_addr,
+                domain_coins=domain_coins,
+                unsigned=unsigned,
+                rbf=rbf,
+                password=password,
+                locktime=locktime,
+                name_input_identifiers=[identifier_bytes])
+            raise NotEnoughAnonymousFunds()
         return tx.serialize()
 
     @command('wpn')
@@ -1111,6 +1158,7 @@ class Commands:
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
+        non_anonymous_domain_addr = domain_addr
         if self.config.get_anonymity_enabled() and identifier is not None:
             if pseudonymous_identifier is None:
                 pseudonymous_identifier = identifier
@@ -1219,17 +1267,31 @@ class Commands:
             amount_sat = satoshis(o_amount)
             final_outputs.append(PartialTxOutput.from_address_and_value(o_address, amount_sat))
 
-        tx = wallet.create_transaction(
-            final_outputs,
-            fee=tx_fee,
-            feerate=feerate,
-            change_addr=None,
-            domain_addr=domain_addr,
-            domain_coins=domain_coins,
-            unsigned=True,
-            rbf=rbf,
-            locktime=locktime,
-            name_inputs_raw=raw_inputs)
+        try:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=None,
+                domain_addr=domain_addr,
+                domain_coins=domain_coins,
+                unsigned=True,
+                rbf=rbf,
+                locktime=locktime,
+                name_inputs_raw=raw_inputs)
+        except NotEnoughFunds:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=None,
+                domain_addr=non_anonymous_domain_addr,
+                domain_coins=domain_coins,
+                unsigned=True,
+                rbf=rbf,
+                locktime=locktime,
+                name_inputs_raw=raw_inputs)
+            raise NotEnoughAnonymousFunds()
 
         if offer is not None:
             tx._inputs[0].script_sig = offer_input.script_sig
@@ -1278,6 +1340,7 @@ class Commands:
         domain_coins = from_coins.split(',') if from_coins else None
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
+        non_anonymous_domain_addr = domain_addr
         if self.config.get_anonymity_enabled() and identifier is not None:
             if pseudonymous_identifier is None:
                 pseudonymous_identifier = identifier
@@ -1363,18 +1426,33 @@ class Commands:
             amount_sat = satoshis(o_amount)
             final_outputs.append(PartialTxOutput.from_address_and_value(o_address, amount_sat))
 
-        tx = wallet.create_transaction(
-            final_outputs,
-            fee=tx_fee,
-            feerate=feerate,
-            change_addr=None,
-            domain_addr=domain_addr,
-            domain_coins=domain_coins,
-            unsigned=True,
-            rbf=rbf,
-            locktime=locktime,
-            name_input_identifiers=[identifier_bytes],
-            name_inputs_raw=raw_inputs)
+        try:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=None,
+                domain_addr=domain_addr,
+                domain_coins=domain_coins,
+                unsigned=True,
+                rbf=rbf,
+                locktime=locktime,
+                name_input_identifiers=[identifier_bytes],
+                name_inputs_raw=raw_inputs)
+        except NotEnoughFunds:
+            tx = wallet.create_transaction(
+                final_outputs,
+                fee=tx_fee,
+                feerate=feerate,
+                change_addr=None,
+                domain_addr=non_anonymous_domain_addr,
+                domain_coins=domain_coins,
+                unsigned=True,
+                rbf=rbf,
+                locktime=locktime,
+                name_input_identifiers=[identifier_bytes],
+                name_inputs_raw=raw_inputs)
+            raise NotEnoughAnonymousFunds()
 
         if offer is not None:
             tx._inputs[0].script_sig = offer_input.script_sig
