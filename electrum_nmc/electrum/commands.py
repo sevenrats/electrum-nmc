@@ -33,6 +33,7 @@ import base64
 import operator
 import asyncio
 import inspect
+import itertools
 from functools import wraps, partial
 from itertools import repeat
 from decimal import Decimal
@@ -762,7 +763,7 @@ class Commands:
         return result
 
     @command('wp')
-    async def name_new(self, identifier=None, name_encoding='ascii', commitment=None, destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
+    async def name_new(self, identifier=None, name_encoding='ascii', commitment=None, destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
         """Create a name pre-registration transaction. """
         self.nocheck = nocheck
 
@@ -790,6 +791,15 @@ class Commands:
         domain_coins = from_coins.split(',') if from_coins else None
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
+
+        if self.config.get_anonymity_enabled() and identifier is not None:
+            if pseudonymous_identifier is None:
+                pseudonymous_identifier = identifier
+            anonymous_addr = await self.listaddressgroupings(identifier=pseudonymous_identifier, name_encoding=name_encoding, collapse=True, wallet=wallet)
+            if domain_addr is None:
+                domain_addr = anonymous_addr
+            else:
+                domain_addr = list(set(domain_addr).intersection(set(anonymous_addr)))
 
         if identifier is not None:
             identifier_bytes = name_from_str(identifier, name_encoding)
@@ -837,7 +847,7 @@ class Commands:
         return {"tx": tx.serialize(), "txid": tx.txid(), "salt": salt_hex, "commitment": commitment}
 
     @command('wp')
-    async def name_firstupdate(self, identifier, salt=None, name_new_txid=None, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_early=False, wallet: Abstract_Wallet = None):
+    async def name_firstupdate(self, identifier, salt=None, name_new_txid=None, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, allow_early=False, wallet: Abstract_Wallet = None):
         """Create a name registration transaction. """
         self.nocheck = nocheck
 
@@ -849,6 +859,15 @@ class Commands:
         domain_coins = from_coins.split(',') if from_coins else None
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
+
+        if self.config.get_anonymity_enabled() and identifier is not None:
+            if pseudonymous_identifier is None:
+                pseudonymous_identifier = identifier
+            anonymous_addr = await self.listaddressgroupings(identifier=pseudonymous_identifier, name_encoding=name_encoding, collapse=True, wallet=wallet)
+            if domain_addr is None:
+                domain_addr = anonymous_addr
+            else:
+                domain_addr = list(set(domain_addr).intersection(set(anonymous_addr)))
 
         identifier_bytes = name_from_str(identifier, name_encoding)
         validate_identifier_length(identifier_bytes)
@@ -928,7 +947,7 @@ class Commands:
         return tx.serialize()
 
     @command('wpn')
-    async def name_update(self, identifier, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_update(self, identifier, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Create a name update transaction. """
 
         self.nocheck = nocheck
@@ -941,6 +960,15 @@ class Commands:
         domain_coins = from_coins.split(',') if from_coins else None
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
+
+        if self.config.get_anonymity_enabled() and identifier is not None:
+            if pseudonymous_identifier is None:
+                pseudonymous_identifier = identifier
+            anonymous_addr = await self.listaddressgroupings(identifier=pseudonymous_identifier, name_encoding=name_encoding, collapse=True, wallet=wallet)
+            if domain_addr is None:
+                domain_addr = anonymous_addr
+            else:
+                domain_addr = list(set(domain_addr).intersection(set(anonymous_addr)))
 
         # Allow renewing a name without any value changes by omitting the
         # value.
@@ -998,7 +1026,7 @@ class Commands:
         return tx.serialize()
 
     @command('wpn')
-    async def name_autoregister(self, identifier, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
+    async def name_autoregister(self, identifier, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
         """Create a name pre-registration transaction, broadcast it, create a corresponding name registration transaction, and queue it. """
 
         # Validate the value before we try to pre-register the name.  That way,
@@ -1015,6 +1043,7 @@ class Commands:
                                    from_addr=from_addr,
                                    from_coins=from_coins,
                                    change_addr=change_addr,
+                                   pseudonymous_identifier=pseudonymous_identifier,
                                    nocheck=nocheck,
                                    rbf=rbf,
                                    password=password,
@@ -1053,6 +1082,7 @@ class Commands:
                                                        feerate=feerate,
                                                        from_addr=new_addr,
                                                        change_addr=change_addr,
+                                                       pseudonymous_identifier=pseudonymous_identifier,
                                                        nocheck=nocheck,
                                                        rbf=rbf,
                                                        password=password,
@@ -1067,7 +1097,7 @@ class Commands:
         await self.broadcast(new_tx, stream_id=stream_id)
 
     @command('wpn')
-    async def name_buy(self, identifier, amount, offer=None, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_buy(self, identifier, amount, offer=None, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Buy an existing name from the current owner."""
 
         self.nocheck = nocheck
@@ -1080,6 +1110,15 @@ class Commands:
         domain_coins = from_coins.split(',') if from_coins else None
         change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
+
+        if self.config.get_anonymity_enabled() and identifier is not None:
+            if pseudonymous_identifier is None:
+                pseudonymous_identifier = identifier
+            anonymous_addr = await self.listaddressgroupings(identifier=pseudonymous_identifier, name_encoding=name_encoding, collapse=True, wallet=wallet)
+            if domain_addr is None:
+                domain_addr = anonymous_addr
+            else:
+                domain_addr = list(set(domain_addr).intersection(set(anonymous_addr)))
 
         # Allow buying a name without any value changes by omitting the
         # value.
@@ -1227,7 +1266,7 @@ class Commands:
         return None
 
     @command('wpn')
-    async def name_sell(self, identifier, requested_amount, offer=None, name_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_sell(self, identifier, requested_amount, offer=None, name_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, pseudonymous_identifier=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Sell a name you currently own."""
 
         self.nocheck = nocheck
@@ -1238,6 +1277,15 @@ class Commands:
         domain_addr = from_addr.split(',') if from_addr else None
         domain_coins = from_coins.split(',') if from_coins else None
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
+
+        if self.config.get_anonymity_enabled() and identifier is not None:
+            if pseudonymous_identifier is None:
+                pseudonymous_identifier = identifier
+            anonymous_addr = await self.listaddressgroupings(identifier=pseudonymous_identifier, name_encoding=name_encoding, collapse=True, wallet=wallet)
+            if domain_addr is None:
+                domain_addr = anonymous_addr
+            else:
+                domain_addr = list(set(domain_addr).intersection(set(anonymous_addr)))
 
         identifier_bytes = name_from_str(identifier, name_encoding)
         validate_identifier_length(identifier_bytes)
@@ -1363,7 +1411,7 @@ class Commands:
         return None
 
     @command('wpn')
-    async def name_buy_auction(self, identifier, amount, offers, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_buy_auction(self, identifier, amount, offers, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Buy an existing name from the current owner via Dutch auction."""
 
         # Pre-cache some parameters to speed up name_buy...
@@ -1402,7 +1450,7 @@ class Commands:
 
         for candidate_offer in offers:
             try:
-                await self.name_buy(identifier, amount, offer=candidate_offer, value=value, name_encoding=name_encoding.value, value_encoding=value_encoding.value, destination=destination, outputs=outputs, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, nocheck=nocheck, unsigned=True, rbf=rbf, locktime=locktime, wallet=wallet)
+                await self.name_buy(identifier, amount, offer=candidate_offer, value=value, name_encoding=name_encoding.value, value_encoding=value_encoding.value, destination=destination, outputs=outputs, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, pseudonymous_identifier=pseudonymous_identifier, nocheck=nocheck, unsigned=True, rbf=rbf, locktime=locktime, wallet=wallet)
 
                 offers_with_acceptable_price.append(candidate_offer)
             except NameTradePriceMismatchError:
@@ -1436,14 +1484,14 @@ class Commands:
                 best_locktime = candidate_locktime
 
         if best_offer is not None:
-            result = await self.name_buy(identifier, amount, offer=best_offer, value=value, name_encoding=name_encoding.value, value_encoding=value_encoding.value, destination=destination, outputs=outputs, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, nocheck=nocheck, unsigned=unsigned, rbf=rbf, password=password, locktime=locktime, wallet=wallet)
+            result = await self.name_buy(identifier, amount, offer=best_offer, value=value, name_encoding=name_encoding.value, value_encoding=value_encoding.value, destination=destination, outputs=outputs, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, pseudonymous_identifier=pseudonymous_identifier, nocheck=nocheck, unsigned=unsigned, rbf=rbf, password=password, locktime=locktime, wallet=wallet)
 
             return result
 
         raise NameTradePriceMismatchError("Your price was below the auction minimum")
 
     @command('wpn')
-    async def name_sell_auction(self, identifier, requested_amounts, locktimes, name_encoding='ascii', destination=None, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, wallet: Abstract_Wallet = None):
+    async def name_sell_auction(self, identifier, requested_amounts, locktimes, name_encoding='ascii', destination=None, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, unsigned=False, rbf=None, password=None, wallet: Abstract_Wallet = None):
         """Sell a name you currently own via Dutch auction."""
 
         if not isinstance(requested_amounts, list):
@@ -1458,11 +1506,88 @@ class Commands:
         offer = []
 
         for single_amount, single_locktime in zip(requested_amounts, locktimes):
-            single_offer = await self.name_sell(identifier, single_amount, offer=None, name_encoding=name_encoding, destination=destination, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, nocheck=nocheck, unsigned=unsigned, rbf=rbf, password=password, locktime=single_locktime, wallet=wallet)
+            single_offer = await self.name_sell(identifier, single_amount, offer=None, name_encoding=name_encoding, destination=destination, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, pseudonymous_identifier=pseudonymous_identifier, nocheck=nocheck, unsigned=unsigned, rbf=rbf, password=password, locktime=single_locktime, wallet=wallet)
 
             offer.append(single_offer)
 
         return offer
+
+    @command('w')
+    async def listaddressgroupings(self, identifier=None, name_encoding='ascii', collapse=False, wallet: Abstract_Wallet = None):
+        """List groups of wallet addresses that are linkable via blockchain graph analysis."""
+
+        name_encoding = Encoding(name_encoding)
+
+        groupings = {}
+
+        addresses = await self.listaddresses(wallet=wallet)
+        for address in addresses:
+            groupings["address:" + address] = set(["address:" + address])
+
+        names = await self.name_list(name_encoding='hex', value_encoding='hex', wallet=wallet)
+        names = [name['name'] for name in names]
+        for name in names:
+            groupings["name:" + name] = set(["name:" + name])
+
+        # Iterate through all transactions in the wallet, plus the transaction queue.
+        for tx in list(wallet.db.transactions.values()) + [Transaction(queue_item["tx"]) for queue_item in wallet.db.queued_transactions.values()]:
+            input_addresses = [wallet.get_txin_address(txin) for txin in tx.inputs()]
+            output_addresses = [wallet.get_txout_address(txout) for txout in tx.outputs()]
+            all_addresses = input_addresses + output_addresses
+            my_addresses = list([("address:" + address) for address in all_addresses if wallet.is_mine(address)])
+
+            names = [txout.name_op for txout in tx.outputs()]
+            names = [name for name in names if name is not None]
+            names = [name["name"] for name in names if "name" in name]
+            if len(names) >= 1:
+                name = names[0]
+                name = name_to_str(name, Encoding('hex'))
+                my_addresses.append("name:" + name)
+
+            first_address = my_addresses[0]
+            if first_address not in groupings:
+                groupings[first_address] = set([first_address])
+            for address in my_addresses[1:]:
+                if address not in groupings:
+                    groupings[address] = set([address])
+                groupings[first_address].update(groupings[address])
+                groupings[address] = groupings[first_address]
+
+        remaining = True
+        while remaining:
+            remaining = False
+            for address1 in groupings:
+                for address2 in groupings:
+                    if groupings[address1] is not groupings[address2]:
+                        if len(groupings[address1].intersection(groupings[address2])) > 0:
+                            remaining = True
+                            groupings[address1].update(groupings[address2])
+                            groupings[address2] = groupings[address1]
+
+        groupings = list(set(frozenset(group) for group in groupings.values()))
+        groupings = [sorted(group) for group in groupings]
+
+        filtered_groupings = []
+        identifier_hex = None
+        if identifier is not None:
+            identifier_bytes = name_from_str(identifier, name_encoding)
+            identifier_hex = name_to_str(identifier_bytes, Encoding.HEX)
+        for group in groupings:
+            if identifier_hex is None:
+                filtered_groupings.append(group)
+                continue
+            if "name:" + identifier_hex in group:
+                filtered_groupings.append(group)
+                continue
+            if not any(address.startswith("name:") for address in group):
+                filtered_groupings.append(group)
+                continue
+
+        if collapse:
+            filtered_groupings = sorted(itertools.chain.from_iterable(filtered_groupings))
+            filtered_groupings = list([address[len("address:"):] for address in filtered_groupings if address.startswith("address:")])
+
+        return filtered_groupings
 
     @command('w')
     async def onchain_history(self, year=None, show_addresses=False, show_fiat=False, wallet: Abstract_Wallet = None):
@@ -2337,7 +2462,9 @@ command_options = {
     'commitment':  (None, "Pre-registration commitment (use if you're pre-registering a name for someone else)"),
     'salt':        (None, "Salt for the name pre-registration commitment (returned by name_new; you can usually omit this)"),
     'name_new_txid':(None, "Transaction ID for the name pre-registration (returned by name_new; you can usually omit this)"),
+    'pseudonymous_identifier': (None, "Explicitly allow blockchain graph analysis to see that the transaction is linkable to this name identifier (e.g. if it's already public knowledge that they belong to the same person, or if they are a d/ and dd/ name pair)"),
     'offer':       (None, "Existing name trade offer to accept"),
+    'collapse':    (None, "Collapse all groups into one (only useful when filtering by identifier)"),
     'trigger_txid':(None, "Broadcast the transaction when this txid reaches the specified number of confirmations"),
     'trigger_name':(None, "Broadcast the transaction when this name reaches the specified number of confirmations"),
     'options':     (None, "Options in Namecoin-Core-style dict"),

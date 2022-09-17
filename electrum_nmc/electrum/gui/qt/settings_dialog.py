@@ -327,6 +327,20 @@ Use this if you want your local watchtower to keep running after you close your 
         outrounding_cb.stateChanged.connect(on_outrounding)
         tx_widgets.append((outrounding_cb, None))
 
+        def on_name_anonymity(x):
+            self.config.set_key('name_anonymous', bool(x))
+        enable_name_anonymity = bool(self.config.get_anonymity_enabled())
+        name_anonymity_cb = QCheckBox(_('Enable name wallet anonymity'))
+        name_anonymity_cb.setToolTip(
+            _('Only use inputs for name transactions if they are not linkable to another name in your wallet.') + '\n' +
+            _('This will improve anonymity against blockchain graph analysis.') + '\n' +
+            _('It will not prevent your ElectrumX server from knowing which names you have (run your own server!).') + '\n' +
+            _('It will not prevent exchanges who funded your wallet from knowing which name you bought with those funds (buy your NMC on an exchange without KYC that accepts a privacy coin!).') + '\n' +
+            _('You will need to buy NMC from an exchange each time you register a new name.'))
+        name_anonymity_cb.setChecked(enable_name_anonymity)
+        name_anonymity_cb.stateChanged.connect(on_name_anonymity)
+        tx_widgets.append((name_anonymity_cb, None))
+
         block_explorers = sorted(util.block_explorer_info().keys())
         msg = _('Choose which online block explorer to use for functions that open a web browser')
         block_ex_label = HelpLabel(_('Online Block Explorer') + ':', msg)

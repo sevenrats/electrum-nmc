@@ -995,6 +995,17 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
                 # append name count
                 name_confirmed_count, name_pending_count = get_wallet_name_count(self.wallet, self.network)
                 text += ", {} {}, {} {}".format(name_confirmed_count, _("names"), name_pending_count, _("pending registration"))
+
+                # append anonymous balance
+                if self.config.get_anonymity_enabled():
+                    listaddressgroupings = self.console.namespace.get('listaddressgroupings')
+                    anonymous_addresses = listaddressgroupings(identifier="", name_encoding="ascii", collapse=True, wallet=self.wallet)
+                    c, u, x = self.wallet.get_balance(anonymous_addresses, hide_expired=True)
+                    text += ", " + _("Anonymous Balance" ) + ": %s "%(self.format_amount_and_units(c))
+                    if u:
+                        text +=  " [%s anonymous unconfirmed]"%(self.format_amount(u, is_diff=True).strip())
+                    if x:
+                        text +=  " [%s anonymous unmatured]"%(self.format_amount(x, is_diff=True).strip())
         else:
             if self.network.proxy:
                 text = "{} ({})".format(_("Not connected"), _("proxy enabled"))

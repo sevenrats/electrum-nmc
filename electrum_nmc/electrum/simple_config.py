@@ -666,6 +666,9 @@ class SimpleConfig(Logger):
     def get_decimal_point(self):
         return self.decimal_point
 
+    def get_anonymity_enabled(self):
+        return self.get("name_anonymous", False)
+
 
 def read_user_config(path):
     """Parse and store the user config settings in electrum-nmc.conf into user_config[]."""
