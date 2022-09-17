@@ -1138,8 +1138,6 @@ class Commands:
             if offer_input_name_op["name"] != identifier_bytes:
                 raise Exception("Sell offer input name identifier mismatch")
             offer_amount_sat = offer_output.value_display - offer_input_output.value_display
-            if offer_amount_sat > amount_sat:
-                raise NameTradePriceMismatchError("Sell offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
 
             # Currency output from counterparty
             offer_output_partial = PartialTxOutput(scriptpubkey=offer_output.scriptpubkey, value=offer_output.value)
@@ -1202,6 +1200,9 @@ class Commands:
 
             # Deflate the name output back to its correct value, since fee estimation is complete
             tx._outputs[1].scriptpubkey = orig_name_scriptpubkey
+
+            if offer_amount_sat + tx.get_fee_display() > amount_sat:
+                raise NameTradePriceMismatchError("Sell offer price mismatch: you specified {} NMC (including fee), offer is for {} NMC + {} NMC fee".format(amount, Decimal(offer_amount_sat) / COIN, Decimal(tx.get_fee_display()) / COIN))
         else:
             if len(tx.inputs()) > 1:
                 raise Exception("Wallet selected a currency input that was too small; try freezing small inputs")
@@ -1278,8 +1279,6 @@ class Commands:
             if offer_output_name_op["name"] != identifier_bytes:
                 raise Exception("Buy offer output name identifier mismatch")
             offer_amount_sat = offer_input_output.value_display - offer_output.value_display
-            if offer_amount_sat < amount_sat:
-                raise NameTradePriceMismatchError("Buy offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
 
             # Name output from counterparty
             offer_output_partial = PartialTxOutput(scriptpubkey=offer_output.scriptpubkey, value=offer_output.value)
@@ -1337,6 +1336,9 @@ class Commands:
 
             # Deflate the name output back to its correct value, since fee estimation is complete
             tx._outputs[0].scriptpubkey = orig_name_scriptpubkey
+
+            if offer_amount_sat - tx.get_fee_display() < amount_sat:
+                raise NameTradePriceMismatchError("Buy offer price mismatch: you specified {} NMC (including fee), offer is for {} NMC - {} NMC fee".format(amount, Decimal(offer_amount_sat) / COIN, Decimal(tx.get_fee_display()) / COIN))
         else:
             # Store the sum of input amount and trade amount in output;
             # counterparty can make change.
