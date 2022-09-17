@@ -707,9 +707,10 @@ if [[ $1 == "name_ant_workflow" ]]; then
 
     echo "Alice sells to Bob"
     offer=$($alice name_sell x/name 0.02)
-    assert_raises_error "$bob name_buy x/name 0.03 --value value2 --offer $offer" "price mismatch"
-    assert_raises_error "$bob name_buy x/name2 0.02 --value value2 --offer $offer" "name identifier mismatch"
-    completed_offer=$($bob name_buy x/name 0.02 --value value2 --offer $offer)
+    assert_raises_error "$bob name_buy x/name 0.01 --value value2 --offer $offer" "price mismatch"
+    assert_raises_error "$bob name_buy x/name 0.02 --value value2 --offer $offer" "price mismatch"
+    assert_raises_error "$bob name_buy x/name2 0.04 --value value2 --offer $offer" "name identifier mismatch"
+    completed_offer=$($bob name_buy x/name 0.04 --value value2 --offer $offer)
     $bob broadcast $completed_offer
     sleep 5s
     new_blocks 12
@@ -723,8 +724,9 @@ if [[ $1 == "name_ant_workflow" ]]; then
     echo "Alice buys from Bob"
     offer=$($alice name_buy x/name 0.02 --value value3)
     assert_raises_error "$bob name_sell x/name 0.03 --offer $offer" "price mismatch"
-    assert_raises_error "$bob name_sell x/name2 0.02 --offer $offer" "name identifier mismatch"
-    completed_offer=$($bob name_sell x/name 0.02 --offer $offer)
+    assert_raises_error "$bob name_sell x/name 0.02 --offer $offer" "price mismatch"
+    assert_raises_error "$bob name_sell x/name2 0.005 --offer $offer" "name identifier mismatch"
+    completed_offer=$($bob name_sell x/name 0.005 --offer $offer)
     $bob broadcast $completed_offer
     sleep 5s
     new_blocks 12
