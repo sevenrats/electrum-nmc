@@ -49,9 +49,12 @@ electrum_nmc/electrum/*.dll
 electrum_nmc/electrum/*.dylib
 
 # Namecoin-Qt forms
+electrum_nmc/electrum/gui/qt/forms/buynamespage.py
 electrum_nmc/electrum/gui/qt/forms/configurenamedialog.py
 electrum_nmc/electrum/gui/qt/forms/dnsdialog.py
 electrum_nmc/electrum/gui/qt/forms/dnssubdomaindialog.py
+electrum_nmc/electrum/gui/qt/forms/managenamespage.py
+electrum_nmc/electrum/gui/qt/forms/tradenamedialog.py
 
 # Namecoin copy of www root
 electrum_nmc/electrum/www
