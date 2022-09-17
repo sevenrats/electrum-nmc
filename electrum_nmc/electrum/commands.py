@@ -113,6 +113,9 @@ class NamePreRegistrationPendingError(Exception):
 class NameUpdatedTooRecentlyError(Exception):
     pass
 
+class NameTradePriceMismatchError(Exception):
+    pass
+
 def satoshis(amount):
     # satoshi conversion must not be performed by the parser
     return int(COIN*Decimal(amount)) if amount not in ['!', None] else amount
@@ -1136,7 +1139,7 @@ class Commands:
                 raise Exception("Sell offer input name identifier mismatch")
             offer_amount_sat = offer_output.value_display - offer_input_output.value_display
             if offer_amount_sat > amount_sat:
-                raise Exception("Sell offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
+                raise NameTradePriceMismatchError("Sell offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
 
             # Currency output from counterparty
             offer_output_partial = PartialTxOutput(scriptpubkey=offer_output.scriptpubkey, value=offer_output.value)
@@ -1215,11 +1218,15 @@ class Commands:
             tx._inputs[0].sighash = Sighash.SINGLE | Sighash.ANYONECANPAY
             tx.invalidate_ser_cache()
 
-        wallet.sign_transaction(tx, password)
-        return tx.serialize()
+        if not unsigned:
+            wallet.sign_transaction(tx, password)
+            return tx.serialize()
+
+        # Returning unsigned tx not supported
+        return None
 
     @command('wpn')
-    async def name_sell(self, identifier, requested_amount, offer=None, name_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+    async def name_sell(self, identifier, requested_amount, offer=None, name_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
         """Sell a name you currently own."""
 
         self.nocheck = nocheck
@@ -1229,7 +1236,6 @@ class Commands:
         tx_fee = satoshis(fee)
         domain_addr = from_addr.split(',') if from_addr else None
         domain_coins = from_coins.split(',') if from_coins else None
-        change_addr = self._resolver(change_addr, wallet)
         domain_addr = None if domain_addr is None else map(self._resolver, domain_addr, repeat(wallet))
 
         identifier_bytes = name_from_str(identifier, name_encoding)
@@ -1273,7 +1279,7 @@ class Commands:
                 raise Exception("Buy offer output name identifier mismatch")
             offer_amount_sat = offer_input_output.value_display - offer_output.value_display
             if offer_amount_sat < amount_sat:
-                raise Exception("Buy offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
+                raise NameTradePriceMismatchError("Buy offer price mismatch: you specified {} NMC, offer is for {} NMC".format(amount, Decimal(offer_amount_sat) / COIN))
 
             # Name output from counterparty
             offer_output_partial = PartialTxOutput(scriptpubkey=offer_output.scriptpubkey, value=offer_output.value)
@@ -1347,8 +1353,114 @@ class Commands:
             tx._version = NAMECOIN_VERSION
             tx.invalidate_ser_cache()
 
-        wallet.sign_transaction(tx, password)
-        return tx.serialize()
+        if not unsigned:
+            wallet.sign_transaction(tx, password)
+            return tx.serialize()
+
+        # Returning unsigned tx not supported
+        return None
+
+    @command('wpn')
+    async def name_buy_auction(self, identifier, amount, offers, value=None, name_encoding='ascii', value_encoding='ascii', destination=None, outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, locktime=None, wallet: Abstract_Wallet = None):
+        """Buy an existing name from the current owner via Dutch auction."""
+
+        # Pre-cache some parameters to speed up name_buy...
+
+        name_encoding = Encoding(name_encoding)
+        value_encoding = Encoding(value_encoding)
+
+        # Allow buying a name without any value changes by omitting the
+        # value.
+        if value is None:
+            try:
+                # TODO: handle semi-expired names
+                show_results = await self.name_show(identifier, name_encoding=name_encoding.value, value_encoding=value_encoding.value, wallet=wallet)
+            except NameUnconfirmedError:
+                # This check is in place to prevent an attack where an ElectrumX
+                # server supplies an unconfirmed name_update transaction with a
+                # malicious value and then tricks the wallet owner into signing a
+                # name renewal with that malicious value.
+                raise NameUpdatedTooRecentlyError("Name was updated too recently to safely determine current value.  Either wait or specify an explicit value.")
+
+            value = show_results["value"]
+
+        identifier_bytes = name_from_str(identifier, name_encoding)
+        memo = "Buy: " + format_name_identifier(identifier_bytes)
+
+        if destination is None:
+            request = await self.add_request(None, memo=memo, wallet=wallet)
+            destination = request['address']
+
+        # TODO: cache offers' input transaction to decrease network usage
+
+        if not isinstance(offers, list):
+            raise Exception("offers param must be a list")
+
+        offers_with_acceptable_price = []
+
+        for candidate_offer in offers:
+            try:
+                await self.name_buy(identifier, amount, offer=candidate_offer, value=value, name_encoding=name_encoding.value, value_encoding=value_encoding.value, destination=destination, outputs=outputs, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, nocheck=nocheck, unsigned=True, rbf=rbf, locktime=locktime, wallet=wallet)
+
+                offers_with_acceptable_price.append(candidate_offer)
+            except NameTradePriceMismatchError:
+                pass
+
+        best_offer = None
+        best_locktime = None
+
+        for candidate_offer in offers_with_acceptable_price:
+            candidate_tx = Transaction(candidate_offer)
+            candidate_locktime = candidate_tx.locktime
+
+            if candidate_locktime >= 500000000:
+                raise Exception("Timestamp-based locktime not supported yet for auctions")
+
+            # Any offer is better than no offer
+            if best_locktime is None:
+                best_offer = candidate_offer
+                best_locktime = candidate_locktime
+
+            height = self.network.get_local_height()
+
+            # Prefer offers that can be broadcasted sooner
+            if best_locktime > height and candidate_locktime < best_locktime:
+                best_offer = candidate_offer
+                best_locktime = candidate_locktime
+
+            # If multiple offers can be broadcasted now, prefer offers with lower price (i.e. higher locktime)
+            if best_locktime <= height and candidate_locktime <= height and candidate_locktime > best_locktime:
+                best_offer = candidate_offer
+                best_locktime = candidate_locktime
+
+        if best_offer is not None:
+            result = await self.name_buy(identifier, amount, offer=best_offer, value=value, name_encoding=name_encoding.value, value_encoding=value_encoding.value, destination=destination, outputs=outputs, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, nocheck=nocheck, unsigned=unsigned, rbf=rbf, password=password, locktime=locktime, wallet=wallet)
+
+            return result
+
+        raise NameTradePriceMismatchError("Your price was below the auction minimum")
+
+    @command('wpn')
+    async def name_sell_auction(self, identifier, requested_amounts, locktimes, name_encoding='ascii', destination=None, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, nocheck=False, unsigned=False, rbf=None, password=None, wallet: Abstract_Wallet = None):
+        """Sell a name you currently own via Dutch auction."""
+
+        if not isinstance(requested_amounts, list):
+            raise Exception("requested_amounts param must be a list")
+
+        if not isinstance(locktimes, list):
+            raise Exception("locktimes param must be a list")
+
+        if len(requested_amounts) != len(locktimes):
+            raise Exception("Mismatched amounts and locktimes count")
+
+        offer = []
+
+        for single_amount, single_locktime in zip(requested_amounts, locktimes):
+            single_offer = await self.name_sell(identifier, single_amount, offer=None, name_encoding=name_encoding, destination=destination, fee=fee, feerate=feerate, from_addr=from_addr, from_coins=from_coins, nocheck=nocheck, unsigned=unsigned, rbf=rbf, password=password, locktime=single_locktime, wallet=wallet)
+
+            offer.append(single_offer)
+
+        return offer
 
     @command('w')
     async def onchain_history(self, year=None, show_addresses=False, show_fiat=False, wallet: Abstract_Wallet = None):
@@ -2156,6 +2268,9 @@ param_descriptions = {
     'redeem_script': 'redeem script (hexadecimal)',
     'lightning_amount': "Amount sent or received in a submarine swap. Set it to 'dryrun' to receive a value",
     'onchain_amount': "Amount sent or received in a submarine swap. Set it to 'dryrun' to receive a value",
+    'offers': "Existing name auction to bid on",
+    'requested_amounts': "Name prices for auction",
+    'locktimes': "Locktimes for auction",
 }
 
 command_options = {
@@ -2252,6 +2367,9 @@ arg_types = {
     'rbf': eval_bool,
     'timeout': float,
     'attempts': int,
+    'offers': json_loads,
+    'requested_amounts': json_loads,
+    'locktimes': json_loads,
 }
 
 config_variables = {
