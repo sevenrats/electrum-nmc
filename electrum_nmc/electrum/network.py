@@ -647,6 +647,16 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
         return server
 
     def _set_proxy(self, proxy: Optional[dict]):
+        # Apply Tor environment variables
+        # See http://eweiibe6tdjsdprb4px6rqrzzcsi22m4koia44kc5pcjr7nec2rlxyad.onion/tpo/applications/team/-/wikis/Tor-Friendly-Applications-Best-Practices
+        if "TOR_SOCKS_HOST" in os.environ or "TOR_SOCKS_PORT" in os.environ:
+            proxy = {"mode": "socks5",
+                     "host": os.environ.get("TOR_SOCKS_HOST", "127.0.0.1"),
+                     "port": os.environ.get("TOR_SOCKS_PORT", "9050"),
+                     "isolate": True}
+        if "TOR_TRANSPROXY" in os.environ:
+            proxy = None
+
         self.proxy = proxy
         dns_hacks.configure_dns_depending_on_proxy(bool(proxy))
         self.logger.info(f'setting proxy {proxy}')
