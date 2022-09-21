@@ -654,6 +654,12 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                      "host": os.environ.get("TOR_SOCKS_HOST", "127.0.0.1"),
                      "port": os.environ.get("TOR_SOCKS_PORT", "9050"),
                      "isolate": True}
+        if "TOR_SOCKS_IPC_PATH" in os.environ:
+            proxy = {"mode": "socks5",
+                     "host": "127.0.0.1",
+                     "port": "1",
+                     "unix": os.environ.get("TOR_SOCKS_IPC_PATH", ""),
+                     "isolate": True}
         if "TOR_TRANSPROXY" in os.environ:
             proxy = None
 

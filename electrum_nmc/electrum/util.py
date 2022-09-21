@@ -1424,6 +1424,36 @@ class MySocksProxy(aiorpcx.SOCKSProxy):
             ret = cls(addr, aiorpcx.socks.SOCKS5, auth)
         else:
             raise NotImplementedError  # http proxy not available with aiorpcx
+        if 'unix' in proxy:
+            # Backported from https://github.com/kyuupichan/aiorpcX/pull/40
+            import socket
+            from aiorpcx import SOCKSError
+            async def _connect_one_unix(self, remote_address):
+                '''Connect to the proxy and perform a handshake requesting a connection.
+
+                Return the open socket on success, or the exception on failure.
+                '''
+                loop = asyncio.get_event_loop()
+
+                for info in [(socket.AF_UNIX, socket.SOCK_STREAM, 0, '', proxy['unix'])]:
+                    # This object has state so is only good for one connection
+                    client = self.protocol(remote_address, self.auth)
+                    sock = socket.socket(family=info[0])
+                    try:
+                        # A non-blocking socket is required by loop socket methods
+                        sock.setblocking(False)
+                        await loop.sock_connect(sock, info[4])
+                        await self._handshake(client, sock, loop)
+                        self.peername = sock.getpeername()
+                        return sock
+                    except (OSError, SOCKSError) as e:
+                        exception = e
+                        # Don't close the socket because of an asyncio bug
+                        # see https://github.com/kyuupichan/aiorpcX/issues/8
+                return exception
+
+            import types
+            ret._connect_one = types.MethodType(_connect_one_unix, ret)
         return ret
 
 
