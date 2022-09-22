@@ -2141,10 +2141,11 @@ class Commands:
             if txs_chain[-1]["height"] > unverified_height:
                 raise NameUnconfirmedError('Name is purportedly unconfirmed (registration height {}, latest verified height {})'.format(txs_chain[-1]["height"], unverified_height))
 
-            txs_chain_verified_spv = []
-            for tx_candidate in txs_chain:
-                hextx = await self.gettransaction(tx_candidate["tx_hash"], verify=True, height=tx_candidate["height"], stream_id=stream_id, wallet=wallet)
-                txs_chain_verified_spv.append(Transaction(hextx))
+            hextx_getters = [self.gettransaction(tx_candidate["tx_hash"], verify=True, height=tx_candidate["height"], stream_id=stream_id, wallet=wallet) for tx_candidate in txs_chain]
+            async def gathered_getters():
+                return await asyncio.gather(*hextx_getters)
+            hextxs = await gathered_getters()
+            txs_chain_verified_spv = [Transaction(hextx) for hextx in hextxs]
 
             for output_tx_num in range(len(txs_chain_verified_spv) - 1):
                 input_tx_num = output_tx_num + 1
