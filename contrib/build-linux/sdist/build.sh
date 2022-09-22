@@ -33,6 +33,8 @@ info "Installing pinned requirements."
 python3 -m pip install --no-dependencies --no-warn-script-location -r "$CONTRIB"/deterministic-build/requirements-build-sdist.txt
 
 
+git submodule update --init
+
 rm -rf "$PROJECT_ROOT/packages/"
 if ([ "$OMIT_UNCLEAN_FILES" != 1 ]); then
   "$CONTRIB"/make_packages || fail "make_packages failed"
