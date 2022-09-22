@@ -53,6 +53,8 @@ $PYTHON -m pip install --no-dependencies --no-warn-script-location -r "$CONTRIB"
 
 $PYTHON -m pip install --no-dependencies --no-warn-script-location -r "$CONTRIB"/deterministic-build/requirements-hw.txt
 
+$PYTHON -m pip install --no-dependencies --no-warn-script-location "$CONTRIB"/python-bitcointx
+
 pushd $WINEPREFIX/drive_c/electrum-nmc
 # see https://github.com/pypa/pip/issues/2195 -- pip makes a copy of the entire directory
 info "Pip installing Electrum-NMC. This might take a long time if the project folder is large."

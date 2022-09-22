@@ -7,3 +7,6 @@
 [submodule "electrum/www"]
 	path = electrum/www
 	url = https://github.com/spesmilo/electrum-http.git
+[submodule "python-bitcointx"]
+	path = contrib/python-bitcointx
+	url = https://github.com/Simplexum/python-bitcointx.git

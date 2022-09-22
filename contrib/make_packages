@@ -9,3 +9,6 @@ rm "$CONTRIB"/../packages/ -r
 python3 -m pip install --no-dependencies --no-binary :all: \
     -r "$CONTRIB"/deterministic-build/requirements.txt -t "$CONTRIB"/../packages
 
+# For Namecoin name_show
+python3 -m pip install --no-dependencies --no-binary :all: \
+    "$CONTRIB"/python-bitcointx -t "$CONTRIB"/../packages

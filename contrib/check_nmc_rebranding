@@ -25,6 +25,7 @@ for i in **/*.py; do
     # Ledger rebranding is a known bug: https://github.com/namecoin/electrum-nmc/issues/105
     # bitcoin.png should be rebranded via the file contents, not the path.
     # bitcoin_key and bitcoin_sig are part of the Lightning protocol.
+    # python-bitcointx is a library that supports altcoins without forking.
     if ./contrib/print_python_strings "$i" "bitcoin" \
         | grep -v "'b\"Bitcoin seed\"'" \
         | grep -v "main_window.py.*\"'bitcoin'\"" \
@@ -34,7 +35,8 @@ for i in **/*.py; do
         | grep -v "electrum_nmc/electrum/plugins/ledger/" \
         | grep -v "bitcoin.png" \
         | grep -v "bitcoin_key" \
-        | grep -v "bitcoin_sig"; then
+        | grep -v "bitcoin_sig" \
+        | grep -v "python-bitcointx"; then
         echo "Rebranding needed"
         exit 1
     fi

@@ -66,6 +66,15 @@ from . import submarine_swaps
 from .verifier import SPV
 from . import constants
 
+import io
+from . import ecc_fast
+import bitcointx.util
+# Reuse Electrum's libsecp256k1 library for bitcointx.
+bitcointx.util._secp256k1_library_path = ecc_fast._libsecp256k1._name
+import bitcointx.core
+import bitcointx.core.script
+import bitcointx.core.scripteval
+
 try:
     from .wallet import Abstract_Wallet, create_new_wallet, restore_wallet_from_text, Deterministic_Wallet
     from .address_synchronizer import TX_HEIGHT_LOCAL
@@ -2032,7 +2041,7 @@ class Commands:
         return self.config.fee_per_kb(dyn=dyn, mempool=mempool, fee_level=fee_level)
 
     @command('n')
-    async def name_show(self, identifier, name_encoding='ascii', value_encoding='ascii', stream_id=None, options=None, wallet: Abstract_Wallet = None):
+    async def name_show(self, identifier, name_encoding='ascii', value_encoding='ascii', stream_id=None, verify_sig=False, options=None, wallet: Abstract_Wallet = None):
         """Look up the current data for the given name.  Fails if the name
         doesn't exist.
         """
@@ -2065,7 +2074,7 @@ class Commands:
         # improves resilience against censorship attacks.
         for i in range(3):
             try:
-                return await self.name_show_single_try(identifier, name_encoding=name_encoding, value_encoding=value_encoding, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id, wallet=wallet)
+                return await self.name_show_single_try(identifier, name_encoding=name_encoding, value_encoding=value_encoding, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id, verify_sig=verify_sig, wallet=wallet)
             except NotSynchronizedException as e:
                 # If the chain isn't synced, asking another server won't help.
                 raise e
@@ -2085,7 +2094,7 @@ class Commands:
         if error_request_failed is not None:
             raise error_request_failed
 
-    async def name_show_single_try(self, identifier, name_encoding='ascii', value_encoding='ascii', stream_id=None, wallet: Abstract_Wallet = None):
+    async def name_show_single_try(self, identifier, name_encoding='ascii', value_encoding='ascii', stream_id=None, verify_sig=False, wallet: Abstract_Wallet = None):
         identifier_bytes = name_from_str(identifier, name_encoding)
         sh = name_identifier_to_scripthash(identifier_bytes)
 
@@ -2109,71 +2118,159 @@ class Commands:
         unverified_height = local_chain_height - 12 + 1
         unmined_height = max_chain_height - 18 + 1
 
-        tx_best = None
-        expired_tx_exists = False
-        expired_tx_height = None
-        semi_expired_tx_exists = False
-        semi_expired_tx_height = None
-        unmined_tx_exists = False
-        unmined_tx_height = None
-        for tx_candidate in txs[::-1]:
-            if tx_candidate["height"] < unexpired_height:
-                # Transaction is expired.  Skip.
-                expired_tx_exists = True
-                # We want to log the *latest* expired height.  We're iterating
-                # in reverse chronological order, so we only take the first one
-                # we see.
-                if expired_tx_height is None:
-                    expired_tx_height = tx_candidate["height"]
-                continue
-            if tx_candidate["height"] < un_semi_expired_height:
-                # Transaction is semi-expired.  Skip.
-                semi_expired_tx_exists = True
-                # We want to log the *latest* semi-expired height.  We're iterating
-                # in reverse chronological order, so we only take the first one
-                # we see.
-                if semi_expired_tx_height is None:
-                    semi_expired_tx_height = tx_candidate["height"]
-                continue
-            if tx_candidate["height"] > unverified_height:
-                # Transaction doesn't have enough verified depth.  What we do
-                # here depends on whether it's due to lack of mining or because
-                # we're still syncing.
+        if verify_sig:
+            txs_chain = []
+            for tx_candidate in txs[::-1]:
+                if len(txs_chain) == 0 and tx_candidate["height"] < un_semi_expired_height:
+                    # Name is currently semi-expired or expired.
+                    if tx_candidate["height"] < unexpired_height:
+                        raise NameExpiredError("Name is purportedly expired (latest renewal height {}, latest unexpired height {})".format(tx_candidate["height"], unexpired_height))
+                    raise NameSemiExpiredError("Name is purportedly semi-expired (latest renewal height {}, latest un-semi-expired height {}); if this name is yours, renew it ASAP to restore resolution and avoid losing ownership of the name".format(tx_candidate["height"], un_semi_expired_height))
+                if len(txs_chain) >= 1 and tx_candidate["height"] < txs_chain[-1]["height"] - constants.net.NAME_EXPIRATION:
+                    # TODO: check for off-by-one error
+                    # Name expired and was re-registered between these two transactions; the sig is expected to not match
+                    break
+                txs_chain.append(tx_candidate)
+                if tx_candidate["height"] <= constants.net.max_checkpoint():
+                    # Transaction is committed to by the checkpoint; no need to verify any deeper than this one.
+                    break
 
-                if tx_candidate["height"] > unmined_height:
-                    # Transaction is new; skip in favor of an older one.
-                    unmined_tx_exists = True
-                    # We want to log the *earliest* unconfirmed height.  We're
-                    # iterating in reverse chronological order, so we take the
-                    # last one we see.
-                    unmined_tx_height = tx_candidate["height"]
+            if len(txs_chain) == 0:
+                raise NameNeverExistedError("Name purportedly never existed")
+
+            if txs_chain[-1]["height"] > unverified_height:
+                raise NameUnconfirmedError('Name is purportedly unconfirmed (registration height {}, latest verified height {})'.format(txs_chain[-1]["height"], unverified_height))
+
+            txs_chain_verified_spv = []
+            for tx_candidate in txs_chain:
+                hextx = await self.gettransaction(tx_candidate["tx_hash"], verify=True, height=tx_candidate["height"], stream_id=stream_id, wallet=wallet)
+                txs_chain_verified_spv.append(Transaction(hextx))
+
+            for output_tx_num in range(len(txs_chain_verified_spv) - 1):
+                input_tx_num = output_tx_num + 1
+                output_tx = txs_chain_verified_spv[output_tx_num]
+                input_tx = txs_chain_verified_spv[input_tx_num]
+
+                output_tx_name_outputs = [output for output in output_tx.outputs() if output.name_op is not None]
+                input_tx_name_outputs = [output for output in input_tx.outputs() if output.name_op is not None]
+
+                if len(output_tx_name_outputs) > 1:
+                    raise Exception("Multiple name outputs")
+                if len(input_tx_name_outputs) > 1:
+                    raise Exception("Multiple name outputs")
+
+                if output_tx.version != NAMECOIN_VERSION:
+                    raise Exception("Not Namecoin version")
+                if input_tx.version != NAMECOIN_VERSION:
+                    raise Exception("Not Namecoin version")
+
+                if len(output_tx_name_outputs) == 0:
+                    raise Exception("Name transaction has no name output")
+                if len(input_tx_name_outputs) == 0:
+                    raise Exception("Name transaction has no name output")
+
+                output_tx_name_output = output_tx_name_outputs[0]
+                input_tx_name_output = input_tx_name_outputs[0]
+                input_tx_name_vout = input_tx.outputs().index(input_tx_name_output)
+
+                if output_tx_name_output.value_display < 0:
+                    raise Exception("Greedy name operation")
+                if input_tx_name_output.value_display < 0:
+                    raise Exception("Greedy name operation")
+
+                if "value" not in output_tx_name_output.name_op:
+                    raise Exception("Pre-registration not an anyupdate")
+                if "value" not in input_tx_name_output.name_op:
+                    raise Exception("Pre-registration not an anyupdate")
+
+                output_tx_name_input = [input_ for input_ in output_tx.inputs() if bh2u(input_.prevout.txid) == input_tx.txid() and input_.prevout.out_idx == input_tx_name_vout]
+                if len(output_tx_name_input) != 1:
+                    raise Exception("Name update has no previous name input")
+                output_tx_name_input = output_tx_name_input[0]
+
+                if output_tx_name_output.name_op["name"] != input_tx_name_output.name_op["name"]:
+                    raise Exception("NAME_UPDATE name mismatch to name input")
+
+                bitcointx_script_sig = bitcointx.core.script.CScript(output_tx_name_input.script_sig)
+                bitcointx_scriptpubkey = bitcointx.core.script.CScript(input_tx_name_output.scriptpubkey)
+                bitcointx_output_tx = bitcointx.core.CTransaction.stream_deserialize(io.BytesIO(output_tx.serialize_as_bytes()))
+                bitcointx_vin = output_tx.inputs().index(output_tx_name_input)
+
+                # TODO: enable CLTV+CSV, and use libnamecoinconsensus instead of the Python reimplementation.
+                bitcointx_flags = set([bitcointx.core.scripteval.SCRIPT_VERIFY_P2SH, bitcointx.core.scripteval.SCRIPT_VERIFY_DERSIG, bitcointx.core.scripteval.SCRIPT_VERIFY_NULLDUMMY, bitcointx.core.scripteval.SCRIPT_VERIFY_WITNESS])                
+                bitcointx.core.scripteval.VerifyScript(bitcointx_script_sig, bitcointx_scriptpubkey, bitcointx_output_tx, bitcointx_vin, bitcointx_flags)
+
+            txs_chain_verified_scripts = txs_chain_verified_spv
+
+            tx = txs_chain_verified_scripts[0]
+            txid = tx.txid()
+            height = txs_chain[0]["height"]
+        else:
+            tx_best = None
+            expired_tx_exists = False
+            expired_tx_height = None
+            semi_expired_tx_exists = False
+            semi_expired_tx_height = None
+            unmined_tx_exists = False
+            unmined_tx_height = None
+            for tx_candidate in txs[::-1]:
+                if tx_candidate["height"] < unexpired_height:
+                    # Transaction is expired.  Skip.
+                    expired_tx_exists = True
+                    # We want to log the *latest* expired height.  We're iterating
+                    # in reverse chronological order, so we only take the first one
+                    # we see.
+                    if expired_tx_height is None:
+                        expired_tx_height = tx_candidate["height"]
                     continue
+                if tx_candidate["height"] < un_semi_expired_height:
+                    # Transaction is semi-expired.  Skip.
+                    semi_expired_tx_exists = True
+                    # We want to log the *latest* semi-expired height.  We're iterating
+                    # in reverse chronological order, so we only take the first one
+                    # we see.
+                    if semi_expired_tx_height is None:
+                        semi_expired_tx_height = tx_candidate["height"]
+                    continue
+                if tx_candidate["height"] > unverified_height:
+                    # Transaction doesn't have enough verified depth.  What we do
+                    # here depends on whether it's due to lack of mining or because
+                    # we're still syncing.
 
-                # We can't verify the transaction because we're still syncing,
-                # but we have reason to believe that previous transactions will
-                # be stale.  So we have to error.
-                raise NotSynchronizedException('The blockchain is still syncing (latest purported transaction height {}, local chain height {}, server chain height {})'.format(tx_candidate["height"], local_chain_height, server_chain_height))
+                    if tx_candidate["height"] > unmined_height:
+                        # Transaction is new; skip in favor of an older one.
+                        unmined_tx_exists = True
+                        # We want to log the *earliest* unconfirmed height.  We're
+                        # iterating in reverse chronological order, so we take the
+                        # last one we see.
+                        unmined_tx_height = tx_candidate["height"]
+                        continue
 
-            tx_best = tx_candidate
-            break
+                    # We can't verify the transaction because we're still syncing,
+                    # but we have reason to believe that previous transactions will
+                    # be stale.  So we have to error.
+                    raise NotSynchronizedException('The blockchain is still syncing (latest purported transaction height {}, local chain height {}, server chain height {})'.format(tx_candidate["height"], local_chain_height, server_chain_height))
 
-        if unmined_tx_exists:
-            raise NameUnconfirmedError('Name is purportedly unconfirmed (registration height {}, latest verified height {})'.format(unmined_tx_height, unverified_height))
-        if semi_expired_tx_exists:
-            raise NameSemiExpiredError("Name is purportedly semi-expired (latest renewal height {}, latest un-semi-expired height {}); if this name is yours, renew it ASAP to restore resolution and avoid losing ownership of the name".format(semi_expired_tx_height, un_semi_expired_height))
-        if expired_tx_exists:
-            raise NameExpiredError("Name is purportedly expired (latest renewal height {}, latest unexpired height {})".format(expired_tx_height, unexpired_height))
-        if tx_best is None:
-            raise NameNeverExistedError("Name purportedly never existed")
-        txid = tx_best["tx_hash"]
-        height = tx_best["height"]
+                tx_best = tx_candidate
+                break
 
-        # The height is now verified to be safe.
+            if unmined_tx_exists:
+                raise NameUnconfirmedError('Name is purportedly unconfirmed (registration height {}, latest verified height {})'.format(unmined_tx_height, unverified_height))
+            if semi_expired_tx_exists:
+                raise NameSemiExpiredError("Name is purportedly semi-expired (latest renewal height {}, latest un-semi-expired height {}); if this name is yours, renew it ASAP to restore resolution and avoid losing ownership of the name".format(semi_expired_tx_height, un_semi_expired_height))
+            if expired_tx_exists:
+                raise NameExpiredError("Name is purportedly expired (latest renewal height {}, latest unexpired height {})".format(expired_tx_height, unexpired_height))
+            if tx_best is None:
+                raise NameNeverExistedError("Name purportedly never existed")
+            txid = tx_best["tx_hash"]
+            height = tx_best["height"]
 
-        hextx = await self.gettransaction(txid, verify=True, height=height, stream_id=stream_id, wallet=wallet)
-        tx = Transaction(hextx)
+            # The height is now verified to be safe.
 
-        # the tx is now verified to come from a safe height in the blockchain
+            hextx = await self.gettransaction(txid, verify=True, height=height, stream_id=stream_id, wallet=wallet)
+            tx = Transaction(hextx)
+
+            # the tx is now verified to come from a safe height in the blockchain
 
         for idx, o in enumerate(tx.outputs()):
             if o.name_op is not None:
@@ -2543,6 +2640,7 @@ command_options = {
     'pseudonymous_identifier': (None, "Explicitly allow blockchain graph analysis to see that the transaction is linkable to this name identifier (e.g. if it's already public knowledge that they belong to the same person, or if they are a d/ and dd/ name pair)"),
     'offer':       (None, "Existing name trade offer to accept"),
     'collapse':    (None, "Collapse all groups into one (only useful when filtering by identifier)"),
+    'verify_sig':  (None, "Verify scriptSig chain"),
     'trigger_txid':(None, "Broadcast the transaction when this txid reaches the specified number of confirmations"),
     'trigger_name':(None, "Broadcast the transaction when this name reaches the specified number of confirmations"),
     'options':     (None, "Options in Namecoin-Core-style dict"),

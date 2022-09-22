@@ -148,6 +148,10 @@ info "Installing dependencies specific to binaries..."
 python3 -m pip install --no-dependencies --no-warn-script-location -Ir ./contrib/deterministic-build/requirements-binaries-mac.txt \
     || fail "Could not install dependencies specific to binaries"
 
+info "Installing bitcointx..."
+python3 -m pip install --no-dependencies --no-warn-script-location -I ./contrib/python-bitcointx \
+    || fail "Could not install bitcointx"
+
 info "Building $PACKAGE..."
 python3 -m pip install --no-dependencies --no-warn-script-location . > /dev/null || fail "Could not build $PACKAGE"
 
