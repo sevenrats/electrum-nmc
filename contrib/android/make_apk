@@ -11,13 +11,13 @@ LOCALE="$ROOT_FOLDER"/electrum_nmc/electrum/locale/
 
 . "$CONTRIB"/build_tools_util.sh
 
-if [ ! -d "$PACKAGES" ]; then
-  "$CONTRIB"/make_packages || fail "make_packages failed"
-fi
-
 pushd "$PROJECT_ROOT"
 git submodule update --init
 popd
+
+if [ ! -d "$PACKAGES" ]; then
+  "$CONTRIB"/make_packages || fail "make_packages failed"
+fi
 
 # update locale
 info "preparing electrum-locale."
