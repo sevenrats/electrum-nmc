@@ -2120,6 +2120,7 @@ class Commands:
 
         if verify_sig:
             txs_chain = []
+            registered_after_checkpoint = True
             for tx_candidate in txs[::-1]:
                 if len(txs_chain) == 0 and tx_candidate["height"] < un_semi_expired_height:
                     # Name is currently semi-expired or expired.
@@ -2133,6 +2134,7 @@ class Commands:
                 txs_chain.append(tx_candidate)
                 if tx_candidate["height"] <= constants.net.max_checkpoint():
                     # Transaction is committed to by the checkpoint; no need to verify any deeper than this one.
+                    registered_after_checkpoint = False
                     break
 
             if len(txs_chain) == 0:
@@ -2147,6 +2149,7 @@ class Commands:
             hextxs = await gathered_getters()
             txs_chain_verified_spv = [Transaction(hextx) for hextx in hextxs]
 
+            earliest_name_output = None
             for output_tx_num in range(len(txs_chain_verified_spv) - 1):
                 input_tx_num = output_tx_num + 1
                 output_tx = txs_chain_verified_spv[output_tx_num]
@@ -2174,6 +2177,8 @@ class Commands:
                 input_tx_name_output = input_tx_name_outputs[0]
                 input_tx_name_vout = input_tx.outputs().index(input_tx_name_output)
 
+                earliest_name_output = input_tx_name_output
+
                 if output_tx_name_output.value_display < 0:
                     raise Exception("Greedy name operation")
                 if input_tx_name_output.value_display < 0:
@@ -2200,6 +2205,14 @@ class Commands:
                 # TODO: enable CLTV+CSV, and use libnamecoinconsensus instead of the Python reimplementation.
                 bitcointx_flags = set([bitcointx.core.scripteval.SCRIPT_VERIFY_P2SH, bitcointx.core.scripteval.SCRIPT_VERIFY_DERSIG, bitcointx.core.scripteval.SCRIPT_VERIFY_NULLDUMMY, bitcointx.core.scripteval.SCRIPT_VERIFY_WITNESS])                
                 bitcointx.core.scripteval.VerifyScript(bitcointx_script_sig, bitcointx_scriptpubkey, bitcointx_output_tx, bitcointx_vin, bitcointx_flags)
+
+            if earliest_name_output is None and len(txs_chain_verified_spv) == 1:
+                earliest_name_outputs = [output for output in txs_chain_verified_spv[0].outputs() if output.name_op is not None]
+                earliest_name_output = earliest_name_outputs[0]
+
+            if registered_after_checkpoint:
+                if earliest_name_output.name_op["op"] != OP_NAME_FIRSTUPDATE:
+                    raise Exception("Earliest name_anyupdate not name_firstupdate")
 
             txs_chain_verified_scripts = txs_chain_verified_spv
 
