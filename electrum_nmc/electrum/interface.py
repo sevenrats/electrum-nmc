@@ -57,7 +57,7 @@ from .bitcoin import hash_encode
 from . import blockchain
 from .blockchain import Blockchain, HeaderChunk, HEADER_SIZE
 from . import bitcoin
-from .merkle import hash_merkle_root
+from .merkle import hash_merkle_root, MerkleRootMismatch
 from . import constants
 from .i18n import _
 from .logging import Logger
@@ -253,6 +253,7 @@ class ErrorSSLCertFingerprintMismatch(Exception): pass
 class InvalidOptionCombination(Exception): pass
 class ConnectError(NetworkException): pass
 
+class CheckpointMerkleRootMismatch(MerkleRootMismatch): pass
 
 class _RSClient(RSClient):
     async def create_connection(self):
@@ -784,12 +785,12 @@ class Interface(Logger):
         expected_merkle_root = constants.net.CHECKPOINTS['merkle_root']
 
         if received_merkle_root != expected_merkle_root:
-            raise Exception("Sent unexpected merkle root, expected: {}, got: {}".format(expected_merkle_root, received_merkle_root))
+            raise CheckpointMerkleRootMismatch("Sent unexpected merkle root, expected: {}, got: {}".format(expected_merkle_root, received_merkle_root))
 
         header_hash = hash_encode(sha256d(bfh(header)))
         proven_merkle_root = hash_merkle_root(merkle_branch, header_hash, header_height, reject_valid_tx=False)
         if proven_merkle_root != expected_merkle_root:
-            raise Exception("Sent incorrect merkle branch, expected: {}, proved: {}".format(constants.net.CHECKPOINTS['merkle_root'], proven_merkle_root))
+            raise CheckpointMerkleRootMismatch("Sent incorrect merkle branch, expected: {}, proved: {}".format(constants.net.CHECKPOINTS['merkle_root'], proven_merkle_root))
 
     def is_main_server(self) -> bool:
         return self.network.default_server == self.server

@@ -34,7 +34,7 @@ from .transaction import Transaction
 from .blockchain import hash_header
 from .interface import GracefulDisconnect
 from .network import UntrustedServerReturnedError
-from .merkle import hash_merkle_root, MerkleVerificationFailure
+from .merkle import hash_merkle_root, MerkleVerificationFailure, MerkleRootMismatch
 from . import constants
 
 if TYPE_CHECKING:
@@ -43,7 +43,6 @@ if TYPE_CHECKING:
 
 
 class MissingBlockHeader(MerkleVerificationFailure): pass
-class MerkleRootMismatch(MerkleVerificationFailure): pass
 
 
 class SPV(NetworkJobOnDefaultServer):

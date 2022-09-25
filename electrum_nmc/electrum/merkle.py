@@ -30,6 +30,7 @@ from .transaction import Transaction
 
 class MerkleVerificationFailure(Exception): pass
 class InnerNodeOfSpvProofIsValidTx(MerkleVerificationFailure): pass
+class MerkleRootMismatch(MerkleVerificationFailure): pass
 
 def hash_merkle_root(merkle_branch: Sequence[str], tx_hash: str, leaf_pos_in_tree: int, reject_valid_tx: bool=True):
     """Return calculated merkle root."""

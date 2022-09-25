@@ -54,6 +54,7 @@ from electrum import (keystore, ecc, constants, util, bitcoin, commands,
 from electrum.bitcoin import COIN, is_address
 from electrum.plugin import run_hook, BasePlugin
 from electrum.i18n import _
+from electrum.merkle import MerkleVerificationFailure
 from electrum.names import format_name_identifier, get_wallet_name_count, name_new_mature_in
 from electrum.util import (format_time,
                            UserCancelled, profiler,
@@ -3469,6 +3470,12 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         except BestEffortRequestFailed as e:
             msg = repr(e)
             self.show_error(msg)
+            return
+        except MerkleVerificationFailure:
+            # Merkle proof from ElectrumX was invalid
+            self.buy_names_register_button.hide()
+            self.buy_names_buy_button.hide()
+            self.buy_names_status_label.setText(_("Merkle verification failure while checking name availability.  If this persists, try switching servers."))
             return
 
         if chain_syncing:
