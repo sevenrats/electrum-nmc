@@ -41,10 +41,11 @@ from typing import Optional, TYPE_CHECKING, Dict, List
 
 from .import util, ecc
 from .util import (bfh, bh2u, format_satoshis, json_decode, json_normalize,
-                   is_hash256_str, is_hex_str, NotEnoughAnonymousFunds, NotEnoughFunds, to_bytes)
+                   is_hash256_str, is_hex_str, NotEnoughAnonymousFunds, NotEnoughFunds, to_bytes, versiontuple)
 from . import bitcoin
 from .bitcoin import is_address,  hash_160, COIN
 from .bip32 import BIP32Node
+from .blockchain import deserialize_pure_header
 from .i18n import _
 from .names import build_name_commitment, build_name_new, Encoding, format_name_identifier, name_expiration_datetime_estimate, name_from_str, name_identifier_to_scripthash, name_semi_expires_in, name_to_str, OP_NAME_NEW, OP_NAME_FIRSTUPDATE, OP_NAME_UPDATE, validate_commitment_length, validate_identifier_length, validate_salt_length, validate_value_length
 from .network import BestEffortRequestFailed
@@ -59,7 +60,7 @@ from .lnutil import LnFeatures
 from .lnutil import ln_dummy_address
 from .lnpeer import channel_id_from_funding_tx
 from .plugin import run_hook
-from .version import ELECTRUM_VERSION
+from .version import ELECTRUM_VERSION, PROTOCOL_VERSION
 from .simple_config import SimpleConfig
 from .invoices import LNInvoice
 from . import submarine_swaps
@@ -2098,7 +2099,15 @@ class Commands:
         identifier_bytes = name_from_str(identifier, name_encoding)
         sh = name_identifier_to_scripthash(identifier_bytes)
 
-        txs = await self.network.get_history_for_scripthash(sh, stream_id=stream_id)
+        if versiontuple(PROTOCOL_VERSION) >= versiontuple("1.4.3"):
+            metaproof = await self.network.name_get_value_proof(sh, stream_id=stream_id)
+
+            txs = metaproof[sh]
+            # TODO: there may be proofs for other names bundled as hints; in
+            # the future we will return those as an extra JSON field.
+        else:
+            txs = await self.network.get_history_for_scripthash(sh, stream_id=stream_id)
+            txs = txs[::-1]
 
         # Check the blockchain height (local and server chains)
         local_chain_height = self.network.get_local_height()
@@ -2121,7 +2130,7 @@ class Commands:
         if verify_sig:
             txs_chain = []
             registered_after_checkpoint = True
-            for tx_candidate in txs[::-1]:
+            for tx_candidate in txs:
                 if len(txs_chain) == 0 and tx_candidate["height"] < un_semi_expired_height:
                     # Name is currently semi-expired or expired.
                     if tx_candidate["height"] < unexpired_height:
@@ -2143,11 +2152,36 @@ class Commands:
             if txs_chain[-1]["height"] > unverified_height:
                 raise NameUnconfirmedError('Name is purportedly unconfirmed (registration height {}, latest verified height {})'.format(txs_chain[-1]["height"], unverified_height))
 
-            hextx_getters = [self.gettransaction(tx_candidate["tx_hash"], verify=True, height=tx_candidate["height"], stream_id=stream_id, wallet=wallet) for tx_candidate in txs_chain]
-            async def gathered_getters():
-                return await asyncio.gather(*hextx_getters)
-            hextxs = await gathered_getters()
-            txs_chain_verified_spv = [Transaction(hextx) for hextx in hextxs]
+            if versiontuple(PROTOCOL_VERSION) >= versiontuple("1.4.3"):
+                txs_chain_verified_spv = []
+
+                for tx_candidate in txs_chain:
+                    if "header" not in tx_candidate:
+                        header = self.network.blockchain().read_header(tx_candidate["height"])
+                        if header is None:
+                            # we need to wait if header sync/reorg is still ongoing, hence lock:
+                            async with self.network.bhi_lock:
+                                header = self.network.blockchain().read_header(tx_candidate["height"])
+                    else:
+                        self.network.interface.validate_checkpoint_result(tx_candidate["header"]["root"], tx_candidate["header"]["branch"], tx_candidate["header"]["header"], tx_candidate["height"])
+                        header = deserialize_pure_header(bfh((tx_candidate["header"]["header"])), tx_candidate["height"])
+
+                    # We've confirmed that the header is authentic for the given height
+
+                    tx_candidate_parsed = Transaction(tx_candidate["tx"])
+                    verify_tx_is_in_block(tx_candidate_parsed.txid(), tx_candidate["tx_merkle"]["merkle"], tx_candidate["tx_merkle"]["pos"], header, tx_candidate["height"])
+
+                    # We've confirmed that the txid is authentic for the given
+                    # header, and that the transaction is authentic for the
+                    # given txid.
+
+                    txs_chain_verified_spv.append(tx_candidate_parsed)
+            else:
+                hextx_getters = [self.gettransaction(tx_candidate["tx_hash"], verify=True, height=tx_candidate["height"], stream_id=stream_id, wallet=wallet) for tx_candidate in txs_chain]
+                async def gathered_getters():
+                    return await asyncio.gather(*hextx_getters)
+                hextxs = await gathered_getters()
+                txs_chain_verified_spv = [Transaction(hextx) for hextx in hextxs]
 
             earliest_name_output = None
             for output_tx_num in range(len(txs_chain_verified_spv) - 1):

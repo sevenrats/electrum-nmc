@@ -47,7 +47,7 @@ import certifi
 
 from .util import (ignore_exceptions, log_exceptions, bfh, bh2u, SilentTaskGroup, MySocksProxy,
                    is_integer, is_non_negative_integer, is_hash256_str, is_hex_str,
-                   is_int_or_float, is_non_negative_int_or_float)
+                   is_int_or_float, is_non_negative_int_or_float, versiontuple)
 from . import util
 from .crypto import sha256d
 from . import x509
@@ -1102,6 +1102,19 @@ class Interface(Logger):
         if tx.txid() != tx_hash:
             raise RequestCorrupted(f"received tx does not match expected txid {tx_hash} (got {tx.txid()})")
         return raw
+
+    async def name_get_value_proof(self, sh: str, *, timeout=None) -> str:
+        if not is_hash256_str(sh):
+            raise Exception(f"{repr(sh)} is not a scripthash")
+
+        cp_height = constants.net.max_checkpoint()
+
+        if versiontuple(version.PROTOCOL_VERSION) < versiontuple("1.4.3"):
+            raise Exception("name_get_value_proof requires protocol 1.4.3+")
+
+        proof = await self.session.send_request('blockchain.name.get_value_proof', [sh, cp_height], timeout=timeout)
+
+        return proof
 
     async def get_history_for_scripthash(self, sh: str) -> List[dict]:
         if not is_hash256_str(sh):

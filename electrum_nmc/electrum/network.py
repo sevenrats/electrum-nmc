@@ -1247,6 +1247,12 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
     @best_effort_reliable
     @catch_server_exceptions
     @stream_isolated
+    async def name_get_value_proof(self, sh: str, *, timeout=None, interface: Interface = None) -> str:
+        return await interface.name_get_value_proof(sh=sh, timeout=timeout)
+
+    @best_effort_reliable
+    @catch_server_exceptions
+    @stream_isolated
     async def get_history_for_scripthash(self, sh: str, interface: Interface = None) -> List[dict]:
         return await interface.get_history_for_scripthash(sh)
 
