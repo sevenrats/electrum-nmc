@@ -2105,6 +2105,9 @@ class Commands:
             txs = metaproof[sh]
             # TODO: there may be proofs for other names bundled as hints; in
             # the future we will return those as an extra JSON field.
+
+            # Always verify sig with new protocol
+            verify_sig = True
         else:
             txs = await self.network.get_history_for_scripthash(sh, stream_id=stream_id)
             txs = txs[::-1]
@@ -2261,7 +2264,7 @@ class Commands:
             semi_expired_tx_height = None
             unmined_tx_exists = False
             unmined_tx_height = None
-            for tx_candidate in txs[::-1]:
+            for tx_candidate in txs:
                 if tx_candidate["height"] < unexpired_height:
                     # Transaction is expired.  Skip.
                     expired_tx_exists = True
