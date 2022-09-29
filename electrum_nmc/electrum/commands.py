@@ -2073,7 +2073,11 @@ class Commands:
         # Try multiple times (with a different Tor circuit and different
         # server) if the server claims that the name doesn't exist.  This
         # improves resilience against censorship attacks.
-        for i in range(3):
+        attempts = 3
+        if self.network.proxy is None or self.network.oneserver:
+            attempts = 1
+
+        for i in range(attempts):
             try:
                 return await self.name_show_single_try(identifier, name_encoding=name_encoding, value_encoding=value_encoding, stream_id="Electrum-NMC name_show attempt "+str(i)+": "+stream_id, verify_sig=verify_sig, wallet=wallet)
             except NotSynchronizedException as e:
