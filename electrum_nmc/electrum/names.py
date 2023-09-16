@@ -132,6 +132,304 @@ def validate_value_length(value: bytes):
     if value_length > value_length_limit:
         raise BitcoinException('value length {} exceeds limit of {}'.format(value_length, value_length_limit))
 
+def validate_A_record(address: str, address_type: str) -> None:
+    match address_type:
+        case 'IPv4':
+            return validate_ipv4_address(address)
+        case 'IPv6':
+            return validate_ipv6_address(address)
+        case 'Tor':
+            return validate_onion_address(address)
+        case 'I2P':
+            return validate_i2p_address(address)
+        case 'ZeroNet':
+            return validate_zeronet_address(address)
+        case 'Freenet':
+            return validate_freenet_address(address)
+
+def validate_onion_address(address: str) -> None:
+    if not address == address.lower():
+        raise ValueError("Invalid onion address: must be in lowercase")
+    # Verify and remove ".onion" from the address if present
+    if not address.endswith(".onion"):
+        raise ValueError("Invalid onion address: missing .onion suffix")
+
+    # Remove ".onion" from the address
+    address = address[:-len('.onion')]  # Slice slicing to remove the last 6 characters (length of ".onion")
+
+    try:
+        # Decode the service ID from base32 into the decoded_service_id bytearray
+        decoded_service_id = base64.b32decode(address.encode(), casefold=True)
+
+        # Check decoded service ID has the expected length
+        if len(decoded_service_id) != V3_ONION_SERVICE_ID_RAW_SIZE:
+            raise ValueError("Invalid service ID length")
+
+        # Check the version byte
+        version_byte = decoded_service_id[V3_ONION_SERVICE_ID_VERSION_OFFSET]
+        if version_byte > 0x03:
+            raise ValueError(f"This is a v{version_byte} onion service, which is newer than the v3 onion services that Electrum-NMC knows how to validate. Please verify that this is what you really meant to enter.")
+
+        if version_byte < 0x03:
+            raise ValueError(f"Obsolete v{version_byte} onion service")
+
+        # Extract the public key from the decoded service ID
+        public_key = bytearray(decoded_service_id[:ED25519_PUBLIC_KEY_SIZE])
+
+        # Calculate the truncated checksum
+        truncated_checksum = calc_onion_truncated_checksum(public_key)
+
+        # Check if the truncated checksum matches the corresponding bytes in the decoded service ID
+        if truncated_checksum[0] != decoded_service_id[V3_ONION_SERVICE_ID_CHECKSUM_OFFSET] or \
+                truncated_checksum[1] != decoded_service_id[V3_ONION_SERVICE_ID_CHECKSUM_OFFSET + 1]:
+            raise ValueError("Invalid checksum")
+
+    except Exception as e:
+        raise ValueError(f"Invalid onion address: {e}")
+
+def calc_onion_truncated_checksum(public_key:bytearray) -> bytearray:
+    hasher = hashlib.sha3_256()
+
+    # Calculate the checksum
+    hasher.update(b".onion checksum")
+    hasher.update(public_key)
+    hasher.update(bytes([0x03]))
+    hash_bytes = bytearray(hasher.digest())
+
+    return hash_bytes[:2]
+
+def validate_ipv4_address(address: str) -> None:
+    try:
+        ipaddress.IPv4Address(address)
+    except ipaddress.AddressValueError as e:
+        raise ValueError(f"Invalid IPv4 address: {e}")
+    except ipaddress.NetmaskValueError as e:
+        raise ValueError(f"Invalid IPv4 netmask: {e}")
+
+def validate_ipv6_address(address: str) -> None:
+    try:
+        ip = ipaddress.IPv6Address(address)
+        if address != ip.compressed:
+            raise ValueError("IPv6 address should be in compressed form")
+    except ipaddress.AddressValueError as e:
+        raise ValueError(f"Invalid IPv6 address: {e}")
+    except ipaddress.NetmaskValueError as e:
+        raise ValueError(f"Invalid IPv6 netmask: {e}")
+
+def validate_i2p_address(address: str) -> None:
+    try:
+        # Naming rules according to https://geti2p.net/en/docs/naming
+        if address.startswith('.') or address.startswith('-'):
+            raise ValueError("Address cannot start with '.' or '-'")
+        elif '..' in address:
+            raise ValueError("Address must not contain '..'")
+        elif '.-' in address or '-.' in address:
+            raise ValueError("Sequence '.-' or '-.' is not allowed")
+        #Check for '--' except in 'xn--' for IDN
+        elif re.search(r'(?<!xn)--(?!-)', address):
+            raise ValueError("Sequence '--' is not allowed except in 'xn--'")
+        # Check if it ends with '.b32.i2p'
+        elif not address.endswith('.b32.i2p'):
+            raise ValueError("Address doesn't end with '.b32.i2p'")
+
+        # Check length of the address (According to https://geti2p.net/en/docs/naming "grep 67 characters")
+        if len(address) > 67:
+            raise ValueError("Address length exceeds 67 characters")
+        
+        # remove '.b32.i2p'
+        address = address[:-len('.b32.i2p')]
+
+        # If starts with 'xn--', remove this prefix
+        if address.startswith('xn--'):
+            address = address[4:]
+
+        # Only [a-z] [0-9] '.' and '-' are allowed
+        address_lower = address.lower()
+        pattern = r'^[a-z0-9.-]+$'
+        if not re.match(pattern, address_lower):
+            raise ValueError("Invalid characters in the address")
+
+        # Add padding
+        padding_needed = (8 - len(address) % 8)
+        padded_address = address + '=' * padding_needed
+
+        decoded = base64.b32decode(padded_address, casefold=True)
+        if len(decoded) != I2P_BASE32_LENGTH:
+            raise ValueError("Invalid length for base32 hash")
+
+    except Exception as e:
+        raise ValueError(f"Invalid I2P address: {e}")
+
+def validate_freenet_address(address: str) -> None: # Validate Base64
+    try:
+        freenet_parts = address.split('@')
+
+        if len(freenet_parts) != 2:
+            raise ValueError("Invalid Freenet address format")
+        Freenet_Key = freenet_parts[0]
+        if not Freenet_Key in ['USK', 'SSK', 'KSK', 'CHK']:  # Valid Freenet Keys (grep Freenet keys): https://staging.freenetproject.org/es/pages/documentation.html
+            raise ValueError(f"Freenet Key: {Freenet_Key} is not valid three-letter word")
+        
+        data_parts = freenet_parts[1].split(',')
+        if len(data_parts) != 3:
+            raise ValueError("Invalid Freenet address format")
+        # public_key_hash, decryption_key, crypto_settings
+        public_key_hash, _, _ = data_parts
+        # Validate the public key hash
+        padding = '=' * (4 - (len(public_key_hash) % 4))
+        base64.b64decode(public_key_hash + padding)
+
+    except Exception as e:
+        raise ValueError(f"{e}")
+
+def validate_zeronet_address(address: str) -> None: # Validate P2PKH Address (Zero Net)
+    try:
+        addrtype, _ = b58_address_to_hash160(address)
+    except Exception as e:
+        raise ValueError(f"Invalid zeronet address: {e}")
+    if addrtype != ZERONET_BASE58_ADDRTYPE:
+        raise ValueError("Invalid address type.")
+
+# https://github.com/python-validators/validators/blob/d46cd586bdd6b9946d5d421f009794a25650f72e/src/validators/domain.py
+def validate_relative_domain(value: str, /, *, rfc_1034: bool = False, rfc_2782: bool = False):
+        if not value:
+            return False
+        try:
+            return not re.search(r"\s", value) and re.match(
+                # First character of the domain
+                rf"^(?:[a-zA-Z0-9{'_'if rfc_2782 else ''}]"
+                # Sub domain + hostname
+                + r"(?:[a-zA-Z0-9-_]{0,61}[A-Za-z0-9])?\.)"
+                # First 61 characters of the gTLD
+                + r"+[A-Za-z0-9][A-Za-z0-9-_]{0,61}"
+                # Last character of the gTLD
+                + rf"[A-Za-z]{r'.$' if rfc_1034 else r'$'}",
+                value.encode("idna").decode("utf-8"),
+                re.IGNORECASE,
+            )
+        except UnicodeError:
+            return False
+
+def validate_domains(domain: str) -> None:
+    if domain.endswith('.'):
+        relative_domain = domain[:-1]
+        if not validate_relative_domain(relative_domain):
+            raise ValueError(f'Invalid domain: {domain}')
+
+    else:
+        labels = domain.split('.')
+
+        if len(labels) == 1:
+            subdomain = labels[0]
+            if len(subdomain) > 63:
+                raise ValueError(f'Subdomain exceeds 63 characters: {subdomain}')
+            if not subdomain.isalnum():
+                raise ValueError(f'Subdomain contains invalid characters: {subdomain}')
+        else:
+            if not validate_relative_domain(domain):
+                raise ValueError(f'Invalid domain: {domain}')
+
+            try:
+                # Read the TLD set from the JSON file
+                current_directory = os.path.dirname(os.path.abspath(__file__))
+                json_file_path = os.path.join(current_directory, 'tld_list.json')
+
+                with open(json_file_path, 'r') as f:
+                    tld_set = set(json.load(f))
+            except Exception as e:
+                raise ValueError(f"Unable to read the TLD list: {e}")
+
+            TLD = labels[-1].lower()
+            if tld_set and (TLD.upper() in tld_set or TLD == "bit"):
+                raise ValueError(f'Recognized TLD which might indicate an invalid domain: {domain}')
+
+def validate_DNSSEC(Hash: str, HashType: int, Algorithm: int) -> None:
+    # DNSSEC Algorithm Numbers: https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    # DS RR Types (Hash Types): https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml#ds-rr-types-1
+    try:
+        # Decode the base64 hash to ensure it's valid base64
+        if Hash:
+            a2b_base64(Hash)
+
+        # Validate HashType
+        if HashType:
+            match HashType:
+                case 1:
+                    raise Exception("Warning: Insecure hash algorithm SHA-1 (HashType 1)")
+                case 2:
+                    pass  # SHA-256 is accepted
+                case _:
+                    raise Exception(f"Warning: Unknown hash algorithm {HashType}")
+
+        if Algorithm:
+            if Algorithm in [15,16]:
+                # Accept the algorithms (ED25519, and ED448)
+                pass
+            elif Algorithm in [1,3,5,6,7,8,10,13,14]:
+                raise Exception(f"Warning: Insecure signature algorithm {Algorithm}.")
+            else:
+                raise Exception(f"Warning: Algorithm {Algorithm} is unsupported.")
+
+    except Exception as e:
+        raise SyntaxError(f"{e}")
+
+def validate_TLS(Public_Key: str) -> None:
+    a2b_base64(Public_Key)
+
+def validate_SSH(Algorithm:int, FingerprintType:int, Fingerprint: str) -> None:
+    try:
+        if Fingerprint:
+            a2b_base64(Fingerprint)
+        
+        if FingerprintType:
+            # SSH Fingerprint Types https://www.iana.org/assignments/dns-sshfp-rr-parameters/dns-sshfp-rr-parameters.xhtml#dns-sshfp-rr-parameters-2
+            match FingerprintType:
+                case 1:
+                    raise Exception("Warning: Insecure hash algorithm SHA-1 (HashType 1)")
+                case 2:
+                    pass  # SHA-256 is accepted
+                case _:
+                    raise Exception(f"Warning: Unknown hash algorithm {FingerprintType}")
+        
+        if Algorithm:
+            # SSH Algorithms https://www.iana.org/assignments/dns-sshfp-rr-parameters/dns-sshfp-rr-parameters.xhtml#dns-sshfp-rr-parameters-1
+            if Algorithm in [4,6]:
+                # Accept the algorithms (ED25519, and ED448)
+                pass
+            elif Algorithm in [1,2,3]: # RSA, DSA, ECDSA
+                raise Exception(f"Warning: Insecure signature algorithm {Algorithm}.")
+            else:
+                raise Exception(f"Warning: Algorithm {Algorithm} is unsupported.")
+
+    except Exception as e:
+        raise SyntaxError(f"{e}")
+    
+def validate_SRV(Priority:int, Weight:int, Port:int, Host:str) -> None:
+    try:
+        # Values must be 16-bit unsigned integers. 
+        # https://www.nslookup.io/learning/dns-record-types/srv/
+        if Priority:
+            if Priority < 0:
+                raise Exception("Priority must be a non-negative integer.")
+            if Priority > 0x10000:
+                raise Exception("Priority must be less than or equal to 65535.")
+        if Weight:
+            if Weight < 0:
+                raise Exception("Weight must be a non-negative integer.")
+            if Weight > 0x10000:
+                raise Exception("Weight must be less than or equal to 65535.")
+        if Port:
+            if Port < 0:
+                raise Exception("Port must be a non-negative integer.")
+            if Port >= 0x10000:
+                raise Exception("Port must be less than 65535.")
+        if Host:
+            if not validate_domains(Host):
+                raise Exception(f'Invalid domain: {Host}')
+    
+    except Exception as e:
+        raise SyntaxError(f"{e}")
+
 def build_name_new(identifier: bytes, salt: bytes = None, address: str = None, password: str = None, wallet = None):
     validate_identifier_length(identifier)
 
@@ -854,7 +1152,7 @@ def get_domain_records_ns(domain, value):
     # Convert string to array (only 1 NS record exists)
     if type(value) == str:
         value = [value]
-    
+
     # Must be array
     if type(value) != list:
         return [], value
@@ -1397,13 +1695,24 @@ from datetime import datetime, timedelta
 import json
 import os
 import re
+import base64
+import hashlib
+import ipaddress
 
-from .bitcoin import push_script, script_to_scripthash
+from .bitcoin import push_script, script_to_scripthash, b58_address_to_hash160
 from .crypto import hash_160
 from .transaction import MalformedBitcoinScript, match_script_against_template, opcodes, OPPushDataGeneric, PartialTransaction, script_GetOp, Transaction
 from .util import bh2u, bfh, BitcoinException
+from .pem import a2b_base64
 
 OP_NAME_NEW = opcodes.OP_1
 OP_NAME_FIRSTUPDATE = opcodes.OP_2
 OP_NAME_UPDATE = opcodes.OP_3
 
+V3_ONION_SERVICE_ID_RAW_SIZE= 35
+V3_ONION_SERVICE_ID_VERSION_OFFSET = 34
+ED25519_PUBLIC_KEY_SIZE = 32
+V3_ONION_SERVICE_ID_CHECKSUM_OFFSET = 32
+
+ZERONET_BASE58_ADDRTYPE = 0
+I2P_BASE32_LENGTH = 32

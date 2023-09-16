@@ -34,6 +34,9 @@ popd
 info "Compiling Namecoin-Qt forms..."
 ./contrib/make_qt_forms
 
+info "Fetching TLDs..."
+./contrib/make_tld_file
+
 info "Copying www root..."
 rm -rf electrum_nmc/electrum/www
 cp -a electrum/www electrum_nmc/electrum/www
