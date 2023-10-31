@@ -43,6 +43,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union, NamedTuple, Sequence, Dict, Any, Set
 from abc import ABC, abstractmethod
 import itertools
+import threading
 
 from aiorpcx import TaskGroup
 
@@ -285,12 +286,14 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
         self.use_change            = db.get('use_change', True)
         self.multiple_change       = db.get('multiple_change', False)
         self._labels                = db.get_dict('labels')
-        self.frozen_addresses      = set(db.get('frozen_addresses', []))
-        self.frozen_coins          = set(db.get('frozen_coins', []))  # set of txid:vout strings
+        self._frozen_addresses      = set(db.get('frozen_addresses', []))
+        self._frozen_coins          = db.get_dict('frozen_coins')  # type: Dict[str, bool]
         self.fiat_value            = db.get_dict('fiat_value')
         self.receive_requests      = db.get_dict('payment_requests')  # type: Dict[str, Invoice]
         self.invoices              = db.get_dict('invoices')  # type: Dict[str, Invoice]
         self._reserved_addresses   = set(db.get('reserved_addresses', []))
+
+        self._freeze_lock = threading.Lock()  # for mutating/iterating frozen_{addresses,coins}
 
         self._prepare_onchain_invoice_paid_detection()
         self.calc_unused_change_addresses()
@@ -356,7 +359,6 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
                 self.lnworker.stop()
                 self.lnworker = None
             self.lnbackups.stop()
-            self.lnbackups = None
         self.save_db()
 
     def set_up_to_date(self, b):
@@ -658,8 +660,10 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
 
     def get_spendable_coins(self, domain, *, nonlocal_only=False) -> Sequence[PartialTxInput]:
         confirmed_only = self.config.get('confirmed_only', False)
+        with self._freeze_lock:
+            frozen_addresses = self._frozen_addresses.copy()
         utxos = self.get_utxos(domain,
-                               excluded_addresses=self.frozen_addresses,
+                               excluded_addresses=frozen_addresses,
                                mature_only=True,
                                confirmed_only=confirmed_only,
                                nonlocal_only=nonlocal_only)
@@ -679,11 +683,19 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
         return self.get_receiving_addresses(slice_start=0, slice_stop=1)[0]
 
     def get_frozen_balance(self):
-        if not self.frozen_coins:  # shortcut
-            return self.get_balance(self.frozen_addresses)
+        with self._freeze_lock:
+            frozen_addresses = self._frozen_addresses.copy()
+        # note: for coins, use is_frozen_coin instead of _frozen_coins,
+        #       as latter only contains *manually* frozen ones
+        frozen_coins = {utxo.prevout.to_str() for utxo in self.get_utxos()
+                        if self.is_frozen_coin(utxo)}
+        if not frozen_coins:  # shortcut
+            return self.get_balance(frozen_addresses)
         c1, u1, x1 = self.get_balance()
-        c2, u2, x2 = self.get_balance(excluded_addresses=self.frozen_addresses,
-                                      excluded_coins=self.frozen_coins)
+        c2, u2, x2 = self.get_balance(
+            excluded_addresses=frozen_addresses,
+            excluded_coins=frozen_coins,
+        )
         return c1-c2, u1-u2, x1-x2
 
     def balance_at_timestamp(self, domain, target_timestamp):
@@ -1310,33 +1322,70 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
         return tx
 
     def is_frozen_address(self, addr: str) -> bool:
-        return addr in self.frozen_addresses
+        return addr in self._frozen_addresses
 
     def is_frozen_coin(self, utxo: PartialTxInput) -> bool:
         prevout_str = utxo.prevout.to_str()
-        return prevout_str in self.frozen_coins
+        frozen = self._frozen_coins.get(prevout_str, None)
+        # note: there are three possible states for 'frozen':
+        #       True/False if the user explicitly set it,
+        #       None otherwise
+        if frozen is None:
+            return self._is_coin_small_and_unconfirmed(utxo)
+        return bool(frozen)
 
-    def set_frozen_state_of_addresses(self, addrs, freeze: bool):
+    def _is_coin_small_and_unconfirmed(self, utxo: PartialTxInput) -> bool:
+        """If true, the coin should not be spent.
+        The idea here is that an attacker might send us a UTXO in a
+        large low-fee unconfirmed tx that will ~never confirm. If we
+        spend it as part of a tx ourselves, that too will not confirm
+        (unless we use a high fee but that might not be worth it for
+        a small value UTXO).
+        In particular, this test triggers for large "dusting transactions"
+        that are used for advertising purposes by some entities.
+        see #6960
+        """
+        # confirmed UTXOs are fine; check this first for performance:
+        block_height = utxo.block_height
+        assert block_height is not None
+        if block_height > 0:
+            return False
+        # exempt large value UTXOs
+        value_sats = utxo.value_sats()
+        assert value_sats is not None
+        threshold = self.config.get('unconf_utxo_freeze_threshold', 5_000)
+        if value_sats >= threshold:
+            return False
+        # if funding tx has any is_mine input, then UTXO is fine
+        funding_tx = self.db.get_transaction(utxo.prevout.txid.hex())
+        if funding_tx is None:
+            # we should typically have the funding tx available;
+            # might not have it e.g. while not up_to_date
+            return True
+        if any(self.is_mine(self.get_txin_address(txin))
+               for txin in funding_tx.inputs()):
+            return False
+        return True
+
+    def set_frozen_state_of_addresses(self, addrs: Sequence[str], freeze: bool) -> bool:
         """Set frozen state of the addresses to FREEZE, True or False"""
         if all(self.is_mine(addr) for addr in addrs):
-            # FIXME take lock?
-            if freeze:
-                self.frozen_addresses |= set(addrs)
-            else:
-                self.frozen_addresses -= set(addrs)
-            self.db.put('frozen_addresses', list(self.frozen_addresses))
-            return True
+            with self._freeze_lock:
+                if freeze:
+                    self._frozen_addresses |= set(addrs)
+                else:
+                    self._frozen_addresses -= set(addrs)
+                self.db.put('frozen_addresses', list(self._frozen_addresses))
+                return True
         return False
 
-    def set_frozen_state_of_coins(self, utxos: Sequence[PartialTxInput], freeze: bool):
+    def set_frozen_state_of_coins(self, utxos: Sequence[str], freeze: bool) -> None:
         """Set frozen state of the utxos to FREEZE, True or False"""
-        utxos = {utxo.prevout.to_str() for utxo in utxos}
-        # FIXME take lock?
-        if freeze:
-            self.frozen_coins |= set(utxos)
-        else:
-            self.frozen_coins -= set(utxos)
-        self.db.put('frozen_coins', list(self.frozen_coins))
+        # basic sanity check that input is not garbage: (see if raises)
+        [TxOutpoint.from_str(utxo) for utxo in utxos]
+        with self._freeze_lock:
+            for utxo in utxos:
+                self._frozen_coins[utxo] = bool(freeze)
 
     def is_address_reserved(self, addr: str) -> bool:
         # note: atm 'reserved' status is only taken into consideration for 'change addresses'
@@ -1394,12 +1443,12 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
         if tx.is_final():
             raise CannotBumpFee(_('Transaction is final'))
         new_fee_rate = quantize_feerate(new_fee_rate)  # strip excess precision
-        old_tx_size = tx.estimated_size()
         try:
             # note: this might download input utxos over network
             tx.add_info_from_wallet(self, ignore_network_issues=False)
         except NetworkException as e:
             raise CannotBumpFee(repr(e))
+        old_tx_size = tx.estimated_size()
         old_fee = tx.get_fee()
         assert old_fee is not None
         old_fee_rate = old_fee / old_tx_size  # sat/vbyte
@@ -1573,12 +1622,12 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
         if tx.is_final():
             raise CannotDoubleSpendTx(_('Transaction is final'))
         new_fee_rate = quantize_feerate(new_fee_rate)  # strip excess precision
-        old_tx_size = tx.estimated_size()
         try:
             # note: this might download input utxos over network
             tx.add_info_from_wallet(self, ignore_network_issues=False)
         except NetworkException as e:
             raise CannotDoubleSpendTx(repr(e))
+        old_tx_size = tx.estimated_size()
         old_fee = tx.get_fee()
         assert old_fee is not None
         old_fee_rate = old_fee / old_tx_size  # sat/vbyte
@@ -1684,7 +1733,7 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
                     return True
         return False
 
-    def get_input_tx(self, tx_hash, *, ignore_network_issues=False) -> Optional[Transaction]:
+    def get_input_tx(self, tx_hash: str, *, ignore_network_issues=False) -> Optional[Transaction]:
         # First look up an input transaction in the wallet where it
         # will likely be.  If co-signing a transaction it may not have
         # all the input txs, in which case we ask the network.
