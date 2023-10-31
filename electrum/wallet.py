@@ -704,8 +704,9 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
             }
 
     def create_invoice(self, *, outputs: List[PartialTxOutput], message, pr, URI) -> Invoice:
+        height=self.get_local_height()
         if pr:
-            return OnchainInvoice.from_bip70_payreq(pr)
+            return OnchainInvoice.from_bip70_payreq(pr, height)
         if '!' in (x.value for x in outputs):
             amount = '!'
         else:
@@ -728,7 +729,7 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
             exp=exp,
             bip70=None,
             requestor=None,
-            height=self.get_local_height(),
+            height=height,
         )
         return invoice
 
@@ -1400,6 +1401,8 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
 
     def _bump_fee_through_coinchooser(self, *, tx: Transaction, new_fee_rate: Union[int, Decimal],
                                       coins: Sequence[PartialTxInput] = None) -> PartialTransaction:
+        old_txid = tx.txid()
+        assert old_txid
         tx = PartialTransaction.from_tx(tx)
         tx.add_info_from_wallet(self)
         old_inputs = list(tx.inputs())
@@ -1427,7 +1430,7 @@ class Abstract_Wallet(AddressSynchronizer, ABC):
         if coins is None:
             coins = self.get_spendable_coins(None)
         # make sure we don't try to spend output from the tx-to-be-replaced:
-        coins = [c for c in coins if c.prevout.txid.hex() != tx.txid()]
+        coins = [c for c in coins if c.prevout.txid.hex() != old_txid]
         for item in coins:
             self.add_input_info(item)
         def fee_estimator(size):
