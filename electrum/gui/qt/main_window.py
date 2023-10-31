@@ -40,6 +40,7 @@ from typing import Optional, TYPE_CHECKING, Sequence, List, Union
 
 from PyQt5.QtGui import QPixmap, QKeySequence, QIcon, QCursor, QFont
 from PyQt5.QtCore import Qt, QRect, QStringListModel, QSize, pyqtSignal
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import (QMessageBox, QComboBox, QSystemTrayIcon, QTabWidget,
                              QMenuBar, QFileDialog, QCheckBox, QLabel,
                              QVBoxLayout, QGridLayout, QLineEdit,
@@ -68,7 +69,7 @@ from electrum.transaction import (Transaction, PartialTxInput,
                                   PartialTransaction, PartialTxOutput)
 from electrum.wallet import (Multisig_Wallet, CannotBumpFee, Abstract_Wallet,
                              sweep_preparations, InternalAddressCorruption,
-                             CannotDoubleSpendTx)
+                             CannotDoubleSpendTx, CannotCPFP)
 from electrum.version import ELECTRUM_VERSION
 from electrum.network import (Network, TxBroadcastError, BestEffortRequestFailed,
                               UntrustedServerReturnedError, NetworkException)
@@ -1115,7 +1116,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         qr_icon = "qrcode_white.png" if ColorScheme.dark_scheme else "qrcode.png"
         self.receive_address_e.addButton(qr_icon, qr_show, _("Show as QR code"))
 
-        self.receive_requests_label = QLabel(_('Incoming payments'))
+        self.receive_requests_label = QLabel(_('Receive queue'))
 
         from .request_list import RequestList
         self.request_list = RequestList(self)
@@ -1372,7 +1373,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
 
         self.set_onchain(False)
 
-        self.invoices_label = QLabel(_('Outgoing payments'))
+        self.invoices_label = QLabel(_('Send queue'))
         from .invoice_list import InvoiceList
         self.invoice_list = InvoiceList(self)
 
@@ -1411,9 +1412,14 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
                 # Check if we had enough funds excluding fees,
                 # if so, still provide opportunity to set lower fees.
                 tx = make_tx(0)
-        except (MultipleSpendMaxTxOutputs, NotEnoughFunds) as e:
+        except MultipleSpendMaxTxOutputs as e:
             self.max_button.setChecked(False)
             self.show_error(str(e))
+            return
+        except NotEnoughFunds as e:
+            self.max_button.setChecked(False)
+            text = self.get_text_not_enough_funds_mentioning_frozen()
+            self.show_error(text)
             return
 
         self.max_button.setChecked(True)
@@ -1511,8 +1517,12 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
     def on_request_status(self, wallet, key, status):
         if wallet != self.wallet:
             return
-        if key not in self.wallet.receive_requests:
+        req = self.wallet.receive_requests.get(key)
+        if req is None:
             return
+        self.request_list.update_item(key, req)
+        self.request_list.update()
+
         if status == PR_PAID:
             self.notify(_('Payment received') + '\n' + key)
             self.need_update.set()
@@ -1524,6 +1534,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         if req is None:
             return
         self.invoice_list.update_item(key, req)
+        self.invoice_list.update()
 
     def on_payment_succeeded(self, wallet, key):
         description = self.wallet.get_label(key)
@@ -1613,6 +1624,15 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         """
         return self.utxo_list.get_spend_list()
 
+    def get_text_not_enough_funds_mentioning_frozen(self) -> str:
+        text = _("Not enough funds")
+        frozen_bal = sum(self.wallet.get_frozen_balance())
+        if frozen_bal:
+            text += " ({} {} {})".format(
+                self.format_amount(frozen_bal).strip(), self.base_unit(), _("are frozen")
+            )
+        return text
+
     def pay_onchain_dialog(
             self, inputs: Sequence[PartialTxInput],
             outputs: List[PartialTxOutput], *,
@@ -1637,7 +1657,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             # Check if we had enough funds excluding fees,
             # if so, still provide opportunity to set lower fees.
             if not d.have_enough_funds_assuming_zero_fees():
-                self.show_message(_('Not Enough Funds'))
+                text = self.get_text_not_enough_funds_mentioning_frozen()
+                self.show_message(text)
                 return
 
         # shortcut to advanced preview (after "enough funds" check!)
@@ -2120,9 +2141,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             'lnutil': lnutil,
         })
 
-        c = commands.Commands(config=self.config,
-                              network=self.network,
-                              callback=lambda: self.console.set_json(True))
+        c = commands.Commands(
+            config=self.config,
+            daemon=self.gui_object.daemon,
+            network=self.network,
+            callback=lambda: self.console.set_json(True))
         methods = {}
         def mkfunc(f, method):
             return lambda *args, **kwargs: f(method,
@@ -3104,7 +3127,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         vbox.addLayout(Buttons(CloseButton(d)))
         d.exec_()
 
-    def cpfp(self, parent_tx: Transaction, new_tx: PartialTransaction) -> None:
+    def cpfp_dialog(self, parent_tx: Transaction) -> None:
+        new_tx = self.wallet.cpfp(parent_tx, 0)
         total_size = parent_tx.estimated_size() + new_tx.estimated_size()
         parent_txid = parent_tx.txid()
         assert parent_txid
@@ -3187,7 +3211,11 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         if fee > max_fee:
             self.show_error(_('Max fee exceeded'))
             return
-        new_tx = self.wallet.cpfp(parent_tx, fee)
+        try:
+            new_tx = self.wallet.cpfp(parent_tx, fee)
+        except CannotCPFP as e:
+            self.show_error(str(e))
+            return
         new_tx.set_rbf(True)
         self.show_transaction(new_tx)
 
