@@ -78,7 +78,7 @@ task:
   only_if: $CIRRUS_BRANCH == 'master'
 
 task:
-  name: Regtest functional tests
+  name: "Regtest functional tests $Binaries"
   compute_engine_instance:
     image_project: cirrus-images
     image: family/docker-builder
@@ -125,6 +125,22 @@ task:
     - electrum_nmc/electrum/tests/regtest/run_bitcoind.sh
   electrumx_service_background_script:
     - electrum_nmc/electrum/tests/regtest/run_electrumx.sh
+  matrix:
+    - env:
+        Binaries: 'Tarball'
+      depends_on:
+        - "linter: Flake8 Mandatory"
+    - env:
+        Binaries: 'AppImage'
+      app_image_setup:
+        - apt-get -y install libfuse2
+        - rm run_electrum_nmc
+        - VERSION="$(git describe --tags --always | cut -c 1-9)"
+        - curl -o run_electrum_nmc https://api.cirrus-ci.com/v1/artifact/build/$CIRRUS_BUILD_ID/build:%20AppImage/binaries/dist/electrum-$VERSION-x86_64.AppImage
+        - chmod u+x run_electrum_nmc
+      depends_on:
+        - "build: AppImage"
+        - "linter: Flake8 Mandatory"
   regtest_script:
     - sleep 10s
     - python3 -m unittest electrum_nmc/electrum/tests/regtest.py
