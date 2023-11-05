@@ -132,9 +132,9 @@ class MockLNWallet(Logger, NetworkRetryManager[LNPeerAddr]):
         # used in tests
         self.enable_htlc_settle = asyncio.Event()
         self.enable_htlc_settle.set()
-        self.received_htlcs = defaultdict(set)
+        self.received_htlcs = dict()
         self.sent_htlcs = defaultdict(asyncio.Queue)
-        self.htlc_routes = defaultdict(list)
+        self.sent_htlcs_routes = defaultdict(list)
 
     def get_invoice_status(self, key):
         pass
@@ -165,16 +165,18 @@ class MockLNWallet(Logger, NetworkRetryManager[LNPeerAddr]):
 
     inflight_payments = set()
     preimages = {}
+    get_payments = LNWallet.get_payments
     get_payment_info = LNWallet.get_payment_info
     save_payment_info = LNWallet.save_payment_info
     set_invoice_status = LNWallet.set_invoice_status
     set_payment_status = LNWallet.set_payment_status
     get_payment_status = LNWallet.get_payment_status
-    htlc_received = LNWallet.htlc_received
+    add_received_htlc = LNWallet.add_received_htlc
     htlc_fulfilled = LNWallet.htlc_fulfilled
     htlc_failed = LNWallet.htlc_failed
     save_preimage = LNWallet.save_preimage
     get_preimage = LNWallet.get_preimage
+    create_route_for_payment = LNWallet.create_route_for_payment
     create_routes_for_payment = LNWallet.create_routes_for_payment
     create_routes_from_invoice = LNWallet.create_routes_from_invoice
     _check_invoice = staticmethod(LNWallet._check_invoice)
@@ -490,6 +492,9 @@ class TestPeer(ElectrumTestCase):
             lnaddr2 = lndecode(pay_req2, expected_hrp=constants.net.SEGWIT_HRP)
             pay_req1 = await self.prepare_invoice(w1)
             lnaddr1 = lndecode(pay_req1, expected_hrp=constants.net.SEGWIT_HRP)
+            # create the htlc queues now (side-effecting defaultdict)
+            q1 = w1.sent_htlcs[lnaddr2.paymenthash]
+            q2 = w2.sent_htlcs[lnaddr1.paymenthash]
             # alice sends htlc BUT NOT COMMITMENT_SIGNED
             p1.maybe_send_commitment = lambda x: None
             route1, amount_msat1 = w1.create_routes_from_invoice(lnaddr2.get_amount_msat(), decoded_invoice=lnaddr2)[0]
@@ -497,6 +502,7 @@ class TestPeer(ElectrumTestCase):
                 route=route1,
                 chan=alice_channel,
                 amount_msat=lnaddr2.get_amount_msat(),
+                total_msat=lnaddr2.get_amount_msat(),
                 payment_hash=lnaddr2.paymenthash,
                 min_final_cltv_expiry=lnaddr2.get_min_final_cltv_expiry(),
                 payment_secret=lnaddr2.payment_secret,
@@ -509,20 +515,21 @@ class TestPeer(ElectrumTestCase):
                 route=route2,
                 chan=bob_channel,
                 amount_msat=lnaddr1.get_amount_msat(),
+                total_msat=lnaddr1.get_amount_msat(),
                 payment_hash=lnaddr1.paymenthash,
                 min_final_cltv_expiry=lnaddr1.get_min_final_cltv_expiry(),
                 payment_secret=lnaddr1.payment_secret,
             )
             p2.maybe_send_commitment = _maybe_send_commitment2
             # sleep a bit so that they both receive msgs sent so far
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.2)
             # now they both send COMMITMENT_SIGNED
             p1.maybe_send_commitment(alice_channel)
             p2.maybe_send_commitment(bob_channel)
 
-            htlc_log1 = await w1.sent_htlcs[lnaddr2.paymenthash].get()
+            htlc_log1 = await q1.get()
             assert htlc_log1.success
-            htlc_log2 = await w2.sent_htlcs[lnaddr1.paymenthash].get()
+            htlc_log2 = await q2.get()
             assert htlc_log2.success
             raise PaymentDone()
 
@@ -663,6 +670,7 @@ class TestPeer(ElectrumTestCase):
             htlc = p1.pay(route=route,
                           chan=alice_channel,
                           amount_msat=lnaddr.get_amount_msat(),
+                          total_msat=lnaddr.get_amount_msat(),
                           payment_hash=lnaddr.paymenthash,
                           min_final_cltv_expiry=lnaddr.get_min_final_cltv_expiry(),
                           payment_secret=lnaddr.payment_secret)
@@ -771,7 +779,13 @@ class TestPeer(ElectrumTestCase):
             min_cltv_expiry = lnaddr.get_min_final_cltv_expiry()
             payment_hash = lnaddr.paymenthash
             payment_secret = lnaddr.payment_secret
-            pay = w1.pay_to_route(route, amount_msat, payment_hash, payment_secret, min_cltv_expiry)
+            pay = w1.pay_to_route(
+                route=route,
+                amount_msat=amount_msat,
+                total_msat=amount_msat,
+                payment_hash=payment_hash,
+                payment_secret=payment_secret,
+                min_cltv_expiry=min_cltv_expiry)
             await asyncio.gather(pay, p1._message_loop(), p2._message_loop(), p1.htlc_switch(), p2.htlc_switch())
         with self.assertRaises(PaymentFailure):
             run(f())
