@@ -41,13 +41,16 @@ from . import constants, util
 from .util import bh2u, profiler, get_headers_dir, is_ip_address, json_normalize
 from .logging import Logger
 from .lnutil import (LNPeerAddr, format_short_channel_id, ShortChannelID,
-                     validate_features, IncompatibleOrInsaneFeatures)
+                     validate_features, IncompatibleOrInsaneFeatures, InvalidGossipMsg)
 from .lnverifier import LNChannelVerifier, verify_sig_for_channel_update
 from .lnmsg import decode_msg
+from . import ecc
+from .crypto import sha256d
 
 if TYPE_CHECKING:
     from .network import Network
     from .lnchannel import Channel
+    from .lnrouter import RouteEdge
 
 
 FLAG_DISABLE   = 1 << 1
@@ -81,6 +84,16 @@ class ChannelInfo(NamedTuple):
         payload_dict = decode_msg(raw)[1]
         return ChannelInfo.from_msg(payload_dict)
 
+    @staticmethod
+    def from_route_edge(route_edge: 'RouteEdge') -> 'ChannelInfo':
+        node1_id, node2_id = sorted([route_edge.start_node, route_edge.end_node])
+        return ChannelInfo(
+            short_channel_id=route_edge.short_channel_id,
+            node1_id=node1_id,
+            node2_id=node2_id,
+            capacity_sat=None,
+        )
+
 
 class Policy(NamedTuple):
     key: bytes
@@ -112,6 +125,20 @@ class Policy(NamedTuple):
         payload = decode_msg(raw)[1]
         payload['start_node'] = key[8:]
         return Policy.from_msg(payload)
+
+    @staticmethod
+    def from_route_edge(route_edge: 'RouteEdge') -> 'Policy':
+        return Policy(
+            key=route_edge.short_channel_id + route_edge.start_node,
+            cltv_expiry_delta=route_edge.cltv_expiry_delta,
+            htlc_minimum_msat=0,
+            htlc_maximum_msat=None,
+            fee_base_msat=route_edge.fee_base_msat,
+            fee_proportional_millionths=route_edge.fee_proportional_millionths,
+            channel_flags=0,
+            message_flags=0,
+            timestamp=0,
+        )
 
     def is_disabled(self):
         return self.channel_flags & FLAG_DISABLE
@@ -216,6 +243,8 @@ class CategorizedChannelUpdates(NamedTuple):
 def get_mychannel_info(short_channel_id: ShortChannelID,
                        my_channels: Dict[ShortChannelID, 'Channel']) -> Optional[ChannelInfo]:
     chan = my_channels.get(short_channel_id)
+    if not chan:
+        return
     ci = ChannelInfo.from_raw_msg(chan.construct_channel_announcement_without_sigs())
     return ci._replace(capacity_sat=chan.constraints.capacity)
 
@@ -351,7 +380,7 @@ class ChannelDB(SqlDB):
     #       even slower; especially as servers will start throttling us.
     #       It would probably put significant strain on servers if all clients
     #       verified the complete gossip.
-    def add_channel_announcement(self, msg_payloads, *, trusted=True):
+    def add_channel_announcements(self, msg_payloads, *, trusted=True):
         # note: signatures have already been verified.
         if type(msg_payloads) is dict:
             msg_payloads = [msg_payloads]
@@ -425,7 +454,8 @@ class ChannelDB(SqlDB):
             self.logger.info(f'policy unchanged: {old_policy.timestamp} -> {new_policy.timestamp}')
         return changed
 
-    def add_channel_update(self, payload, max_age=None, verify=False, verbose=True):
+    def add_channel_update(
+            self, payload, *, max_age=None, verify=True, verbose=True) -> UpdateStatus:
         now = int(time.time())
         short_channel_id = ShortChannelID(payload['short_channel_id'])
         timestamp = payload['timestamp']
@@ -441,8 +471,6 @@ class ChannelDB(SqlDB):
         start_node = channel_info.node1_id if direction == 0 else channel_info.node2_id
         payload['start_node'] = start_node
         # compare updates to existing database entries
-        timestamp = payload['timestamp']
-        start_node = payload['start_node']
         short_channel_id = ShortChannelID(payload['short_channel_id'])
         key = (start_node, short_channel_id)
         old_policy = self._policies.get(key)
@@ -468,7 +496,7 @@ class ChannelDB(SqlDB):
         unchanged = []
         good = []
         for payload in payloads:
-            r = self.add_channel_update(payload, max_age=max_age, verbose=False)
+            r = self.add_channel_update(payload, max_age=max_age, verbose=False, verify=True)
             if r == UpdateStatus.ORPHANED:
                 orphaned.append(payload)
             elif r == UpdateStatus.EXPIRED:
@@ -540,15 +568,35 @@ class ChannelDB(SqlDB):
             if r == []:
                 c.execute("INSERT INTO address (node_id, host, port, timestamp) VALUES (?,?,?,?)", (addr.pubkey, addr.host, addr.port, 0))
 
-    def verify_channel_update(self, payload):
+    @classmethod
+    def verify_channel_update(cls, payload, *, start_node: bytes = None) -> None:
         short_channel_id = payload['short_channel_id']
         short_channel_id = ShortChannelID(short_channel_id)
         if constants.net.rev_genesis_bytes() != payload['chain_hash']:
-            raise Exception('wrong chain hash')
-        if not verify_sig_for_channel_update(payload, payload['start_node']):
-            raise Exception(f'failed verifying channel update for {short_channel_id}')
+            raise InvalidGossipMsg('wrong chain hash')
+        start_node = payload.get('start_node', None) or start_node
+        assert start_node is not None
+        if not verify_sig_for_channel_update(payload, start_node):
+            raise InvalidGossipMsg(f'failed verifying channel update for {short_channel_id}')
 
-    def add_node_announcement(self, msg_payloads):
+    @classmethod
+    def verify_channel_announcement(cls, payload) -> None:
+        h = sha256d(payload['raw'][2+256:])
+        pubkeys = [payload['node_id_1'], payload['node_id_2'], payload['bitcoin_key_1'], payload['bitcoin_key_2']]
+        sigs = [payload['node_signature_1'], payload['node_signature_2'], payload['bitcoin_signature_1'], payload['bitcoin_signature_2']]
+        for pubkey, sig in zip(pubkeys, sigs):
+            if not ecc.verify_signature(pubkey, sig, h):
+                raise InvalidGossipMsg('signature failed')
+
+    @classmethod
+    def verify_node_announcement(cls, payload) -> None:
+        pubkey = payload['node_id']
+        signature = payload['signature']
+        h = sha256d(payload['raw'][66:])
+        if not ecc.verify_signature(pubkey, signature, h):
+            raise InvalidGossipMsg('signature failed')
+
+    def add_node_announcements(self, msg_payloads):
         # note: signatures have already been verified.
         if type(msg_payloads) is dict:
             msg_payloads = [msg_payloads]
@@ -610,12 +658,20 @@ class ChannelDB(SqlDB):
             self.update_counts()
             self.logger.info(f'Deleting {len(orphaned_chans)} orphaned channels')
 
-    def add_channel_update_for_private_channel(self, msg_payload: dict, start_node_id: bytes):
+    def add_channel_update_for_private_channel(self, msg_payload: dict, start_node_id: bytes) -> bool:
+        """Returns True iff the channel update was successfully added and it was different than
+        what we had before (if any).
+        """
         if not verify_sig_for_channel_update(msg_payload, start_node_id):
-            return  # ignore
+            return False  # ignore
         short_channel_id = ShortChannelID(msg_payload['short_channel_id'])
         msg_payload['start_node'] = start_node_id
-        self._channel_updates_for_private_channels[(start_node_id, short_channel_id)] = msg_payload
+        key = (start_node_id, short_channel_id)
+        prev_chanupd = self._channel_updates_for_private_channels.get(key)
+        if prev_chanupd == msg_payload:
+            return False
+        self._channel_updates_for_private_channels[key] = msg_payload
+        return True
 
     def remove_channel(self, short_channel_id: ShortChannelID):
         # FIXME what about rm-ing policies?
@@ -686,7 +742,7 @@ class ChannelDB(SqlDB):
         (nchans_with_0p, nchans_with_1p, nchans_with_2p) = self.get_num_channels_partitioned_by_policy_count()
         self.logger.info(f'num_channels_partitioned_by_policy_count. '
                          f'0p: {nchans_with_0p}, 1p: {nchans_with_1p}, 2p: {nchans_with_2p}')
-        self.data_loaded.set()
+        self.asyncio_loop.call_soon_threadsafe(self.data_loaded.set)
         util.trigger_callback('gossip_db_loaded')
 
     def _update_num_policies_for_chan(self, short_channel_id: ShortChannelID) -> None:
@@ -716,8 +772,14 @@ class ChannelDB(SqlDB):
         nchans_with_2p = len(self._chans_with_2_policies)
         return nchans_with_0p, nchans_with_1p, nchans_with_2p
 
-    def get_policy_for_node(self, short_channel_id: bytes, node_id: bytes, *,
-                            my_channels: Dict[ShortChannelID, 'Channel'] = None) -> Optional['Policy']:
+    def get_policy_for_node(
+            self,
+            short_channel_id: bytes,
+            node_id: bytes,
+            *,
+            my_channels: Dict[ShortChannelID, 'Channel'] = None,
+            private_route_edges: Dict[ShortChannelID, 'RouteEdge'] = None,
+    ) -> Optional['Policy']:
         channel_info = self.get_channel_info(short_channel_id)
         if channel_info is not None:  # publicly announced channel
             policy = self._policies.get((node_id, short_channel_id))
@@ -729,28 +791,56 @@ class ChannelDB(SqlDB):
                 return Policy.from_msg(chan_upd_dict)
         # check if it's one of our own channels
         if my_channels:
-            return get_mychannel_policy(short_channel_id, node_id, my_channels)
+            policy = get_mychannel_policy(short_channel_id, node_id, my_channels)
+            if policy:
+                return policy
+        if private_route_edges:
+            route_edge = private_route_edges.get(short_channel_id, None)
+            if route_edge:
+                return Policy.from_route_edge(route_edge)
 
-    def get_channel_info(self, short_channel_id: ShortChannelID, *,
-                         my_channels: Dict[ShortChannelID, 'Channel'] = None) -> Optional[ChannelInfo]:
+    def get_channel_info(
+            self,
+            short_channel_id: ShortChannelID,
+            *,
+            my_channels: Dict[ShortChannelID, 'Channel'] = None,
+            private_route_edges: Dict[ShortChannelID, 'RouteEdge'] = None,
+    ) -> Optional[ChannelInfo]:
         ret = self._channels.get(short_channel_id)
         if ret:
             return ret
         # check if it's one of our own channels
         if my_channels:
-            return get_mychannel_info(short_channel_id, my_channels)
+            channel_info = get_mychannel_info(short_channel_id, my_channels)
+            if channel_info:
+                return channel_info
+        if private_route_edges:
+            route_edge = private_route_edges.get(short_channel_id)
+            if route_edge:
+                return ChannelInfo.from_route_edge(route_edge)
 
-    def get_channels_for_node(self, node_id: bytes, *,
-                              my_channels: Dict[ShortChannelID, 'Channel'] = None) -> Set[bytes]:
+    def get_channels_for_node(
+            self,
+            node_id: bytes,
+            *,
+            my_channels: Dict[ShortChannelID, 'Channel'] = None,
+            private_route_edges: Dict[ShortChannelID, 'RouteEdge'] = None,
+    ) -> Set[bytes]:
         """Returns the set of short channel IDs where node_id is one of the channel participants."""
         if not self.data_loaded.is_set():
             raise Exception("channelDB data not loaded yet!")
         relevant_channels = self._channels_for_node.get(node_id) or set()
         relevant_channels = set(relevant_channels)  # copy
         # add our own channels  # TODO maybe slow?
-        for chan in (my_channels.values() or []):
-            if node_id in (chan.node_id, chan.get_local_pubkey()):
-                relevant_channels.add(chan.short_channel_id)
+        if my_channels:
+            for chan in my_channels.values():
+                if node_id in (chan.node_id, chan.get_local_pubkey()):
+                    relevant_channels.add(chan.short_channel_id)
+        # add private channels  # TODO maybe slow?
+        if private_route_edges:
+            for route_edge in private_route_edges.values():
+                if node_id in (route_edge.start_node, route_edge.end_node):
+                    relevant_channels.add(route_edge.short_channel_id)
         return relevant_channels
 
     def get_endnodes_for_chan(self, short_channel_id: ShortChannelID, *,
