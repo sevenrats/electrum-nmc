@@ -41,7 +41,7 @@ from .bitcoin import redeem_script_to_address
 from .crypto import sha256, sha256d
 from .transaction import Transaction, PartialTransaction, TxInput
 from .logging import Logger
-from .lnonion import decode_onion_error, OnionFailureCode, OnionRoutingFailureMessage
+from .lnonion import decode_onion_error, OnionFailureCode, OnionRoutingFailure
 from . import lnutil
 from .lnutil import (Outpoint, LocalConfig, RemoteConfig, Keypair, OnlyPubkeyKeypair, ChannelConstraints,
                      get_per_commitment_secret_from_seed, secret_to_pubkey, derive_privkey, make_closing_tx,
@@ -528,7 +528,7 @@ class Channel(AbstractChannel):
         self._chan_ann_without_sigs = None  # type: Optional[bytes]
         self.revocation_store = RevocationStore(state["revocation_store"])
         self._can_send_ctx_updates = True  # type: bool
-        self._receive_fail_reasons = {}  # type: Dict[int, (bytes, OnionRoutingFailureMessage)]
+        self._receive_fail_reasons = {}  # type: Dict[int, (bytes, OnionRoutingFailure)]
         self._ignore_max_htlc_value = False  # used in tests
 
     def is_initiator(self):
@@ -670,27 +670,19 @@ class Channel(AbstractChannel):
     def get_next_feerate(self, subject: HTLCOwner) -> int:
         return self.hm.get_feerate_in_next_ctx(subject)
 
-    def get_payments(self):
-        out = []
-        for direction, htlc in self.hm.all_htlcs_ever():
-            htlc_proposer = LOCAL if direction is SENT else REMOTE
-            if self.hm.was_htlc_failed(htlc_id=htlc.htlc_id, htlc_proposer=htlc_proposer):
-                status = 'failed'
-            elif self.hm.was_htlc_preimage_released(htlc_id=htlc.htlc_id, htlc_proposer=htlc_proposer):
-                status = 'settled'
-            else:
-                status = 'inflight'
-            rhash = htlc.payment_hash.hex()
-            out.append((rhash, self.channel_id, htlc, direction, status))
-        return out
-
-    def get_settled_payments(self):
+    def get_payments(self, status=None):
         out = defaultdict(list)
         for direction, htlc in self.hm.all_htlcs_ever():
             htlc_proposer = LOCAL if direction is SENT else REMOTE
-            if self.hm.was_htlc_preimage_released(htlc_id=htlc.htlc_id, htlc_proposer=htlc_proposer):
-                rhash = htlc.payment_hash.hex()
-                out[rhash].append((self.channel_id, htlc, direction))
+            if self.hm.was_htlc_failed(htlc_id=htlc.htlc_id, htlc_proposer=htlc_proposer):
+                _status = 'failed'
+            elif self.hm.was_htlc_preimage_released(htlc_id=htlc.htlc_id, htlc_proposer=htlc_proposer):
+                _status = 'settled'
+            else:
+                _status = 'inflight'
+            if status and status != _status:
+                continue
+            out[htlc.payment_hash].append((self.channel_id, htlc, direction, _status))
         return out
 
     def open_with_first_pcp(self, remote_pcp: bytes, remote_sig: bytes) -> None:
@@ -977,10 +969,6 @@ class Channel(AbstractChannel):
             raise Exception("refusing to revoke as remote sig does not fit")
         with self.db_lock:
             self.hm.send_rev()
-        if self.lnworker:
-            received = self.hm.received_in_ctn(new_ctn)
-            for htlc in received:
-                self.lnworker.payment_received(self, htlc.payment_hash)
         last_secret, last_point = self.get_secret_and_point(LOCAL, new_ctn - 1)
         next_secret, next_point = self.get_secret_and_point(LOCAL, new_ctn + 1)
         return RevokeAndAck(last_secret, next_point)
@@ -1003,7 +991,7 @@ class Channel(AbstractChannel):
         if self.lnworker:
             sent = self.hm.sent_in_ctn(new_ctn)
             for htlc in sent:
-                self.lnworker.payment_sent(self, htlc.payment_hash)
+                self.lnworker.htlc_fulfilled(self, htlc.payment_hash, htlc.htlc_id, htlc.amount_msat)
             failed = self.hm.failed_in_ctn(new_ctn)
             for htlc in failed:
                 try:
@@ -1014,14 +1002,13 @@ class Channel(AbstractChannel):
                 if self.lnworker.get_payment_info(htlc.payment_hash) is None:
                     self.save_fail_htlc_reason(htlc.htlc_id, error_bytes, failure_message)
                 else:
-                    self.lnworker.payment_failed(self, htlc.payment_hash, error_bytes, failure_message)
+                    self.lnworker.htlc_failed(self, htlc.payment_hash, htlc.htlc_id, htlc.amount_msat, error_bytes, failure_message)
 
     def save_fail_htlc_reason(
             self,
             htlc_id: int,
             error_bytes: Optional[bytes],
-            failure_message: Optional['OnionRoutingFailureMessage'],
-    ):
+            failure_message: Optional['OnionRoutingFailure']):
         error_hex = error_bytes.hex() if error_bytes else None
         failure_hex = failure_message.to_bytes().hex() if failure_message else None
         self.hm.log['fail_htlc_reasons'][htlc_id] = (error_hex, failure_hex)
@@ -1029,7 +1016,7 @@ class Channel(AbstractChannel):
     def pop_fail_htlc_reason(self, htlc_id):
         error_hex, failure_hex = self.hm.log['fail_htlc_reasons'].pop(htlc_id, (None, None))
         error_bytes = bytes.fromhex(error_hex) if error_hex else None
-        failure_message = OnionRoutingFailureMessage.from_bytes(bytes.fromhex(failure_hex)) if failure_hex else None
+        failure_message = OnionRoutingFailure.from_bytes(bytes.fromhex(failure_hex)) if failure_hex else None
         return error_bytes, failure_message
 
     def extract_preimage_from_htlc_txin(self, txin: TxInput) -> None:
@@ -1060,9 +1047,9 @@ class Channel(AbstractChannel):
         info = self.lnworker.get_payment_info(payment_hash)
         if info is not None and info.status != PR_PAID:
             if is_sent:
-                self.lnworker.payment_sent(self, payment_hash)
+                self.lnworker.htlc_fulfilled(self, payment_hash, htlc.htlc_id, htlc.amount_msat)
             else:
-                self.lnworker.payment_received(self, payment_hash)
+                self.lnworker.htlc_received(self, payment_hash)
 
     def balance(self, whose: HTLCOwner, *, ctx_owner=HTLCOwner.LOCAL, ctn: int = None) -> int:
         assert type(whose) is HTLCOwner
@@ -1250,7 +1237,7 @@ class Channel(AbstractChannel):
         return htlc.payment_hash
 
     def decode_onion_error(self, reason: bytes, route: Sequence['RouteEdge'],
-                           htlc_id: int) -> Tuple[OnionRoutingFailureMessage, int]:
+                           htlc_id: int) -> Tuple[OnionRoutingFailure, int]:
         failure_msg, sender_idx = decode_onion_error(
             reason,
             [x.node_id for x in route],
@@ -1279,7 +1266,7 @@ class Channel(AbstractChannel):
 
     def receive_fail_htlc(self, htlc_id: int, *,
                           error_bytes: Optional[bytes],
-                          reason: Optional[OnionRoutingFailureMessage] = None) -> None:
+                          reason: Optional[OnionRoutingFailure] = None) -> None:
         """Fail a pending offered HTLC.
         Action must be initiated by REMOTE.
         """
