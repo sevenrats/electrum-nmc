@@ -630,6 +630,13 @@ def format_satoshis_plain(x, *, decimal_point=8) -> str:
     return "{:.8f}".format(Decimal(x) / scale_factor).rstrip('0').rstrip('.')
 
 
+# Check that Decimal precision is sufficient.
+# We need at the very least ~20, as we deal with msat amounts, and
+# log10(21_000_000 * 10**8 * 1000) ~= 18.3
+# decimal.DefaultContext.prec == 28 by default, but it is mutable.
+# We enforce that we have at least that available.
+assert decimal.getcontext().prec >= 28, f"PyDecimal precision too low: {decimal.getcontext().prec}"
+
 DECIMAL_POINT = localeconv()['decimal_point']  # type: str
 
 
@@ -1164,6 +1171,10 @@ class NetworkJobOnDefaultServer(Logger):
         self.network = network
         self.interface = None  # type: Interface
         self._restart_lock = asyncio.Lock()
+        # Ensure fairness between NetworkJobs. e.g. if multiple wallets
+        # are open, a large wallet's Synchronizer should not starve the small wallets:
+        self._network_request_semaphore = asyncio.Semaphore(100)
+
         self._reset()
         asyncio.run_coroutine_threadsafe(self._restart(), network.asyncio_loop)
         register_callback(self._restart, ['default_server_changed'])
