@@ -12,9 +12,11 @@ from electrum.lnutil import LOCAL, REMOTE, format_short_channel_id
 from electrum.lnchannel import AbstractChannel, Channel
 from electrum.gui.kivy.i18n import _
 from .question import Question
-from electrum.transaction import PartialTxOutput
-from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates, format_fee_satoshis
+from electrum.transaction import PartialTxOutput, Transaction
+from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates, format_fee_satoshis, quantize_feerate
 from electrum.lnutil import ln_dummy_address
+
+from .qr_dialog import QRDialog
 
 if TYPE_CHECKING:
     from ...main_window import ElectrumWindow
@@ -230,7 +232,7 @@ Builder.load_string(r'''
     remote_ctn:0
     local_csv:0
     remote_csv:0
-    feerate:0
+    feerate:''
     can_send:''
     can_receive:''
     is_open:False
@@ -276,7 +278,7 @@ Builder.load_string(r'''
                     value: 'Local: %d\nRemote: %d' % (root.local_ctn, root.remote_ctn)
                 BoxLabel:
                     text: _('Fee rate')
-                    value: '%d sat/kilobyte' % (root.feerate)
+                    value: '{} sat/byte'.format(root.feerate)
                 Widget:
                     size_hint: 1, 0.1
                 TopLabel:
@@ -410,12 +412,13 @@ Builder.load_string(r'''
 
 class ChannelBackupPopup(Popup, Logger):
 
-    def __init__(self, chan: AbstractChannel, app: 'ElectrumWindow', **kwargs):
+    def __init__(self, chan: AbstractChannel, app, **kwargs):
         Popup.__init__(self, **kwargs)
         Logger.__init__(self)
         self.chan = chan
         self.app = app
         self.short_id = format_short_channel_id(chan.short_channel_id)
+        self.capacity = self.app.format_amount_and_units(chan.get_capacity())
         self.state = chan.get_state_for_GUI()
         self.title = _('Channel Backup')
 
@@ -427,7 +430,7 @@ class ChannelBackupPopup(Popup, Logger):
         if not b:
             return
         loop = self.app.wallet.network.asyncio_loop
-        coro = asyncio.run_coroutine_threadsafe(self.app.wallet.lnbackups.request_force_close(self.chan.channel_id), loop)
+        coro = asyncio.run_coroutine_threadsafe(self.app.wallet.lnworker.request_force_close_from_backup(self.chan.channel_id), loop)
         try:
             coro.result(5)
             self.app.show_info(_('Channel closed'))
@@ -442,7 +445,7 @@ class ChannelBackupPopup(Popup, Logger):
     def _remove_backup(self, b):
         if not b:
             return
-        self.app.wallet.lnbackups.remove_channel_backup(self.chan.channel_id)
+        self.app.wallet.lnworker.remove_channel_backup(self.chan.channel_id)
         self.dismiss()
 
 
@@ -460,14 +463,15 @@ class ChannelDetailsPopup(Popup, Logger):
         self.channel_id = bh2u(chan.channel_id)
         self.funding_txid = chan.funding_outpoint.txid
         self.short_id = format_short_channel_id(chan.short_channel_id)
-        self.capacity = self.app.format_amount_and_units(chan.constraints.capacity)
+        self.capacity = self.app.format_amount_and_units(chan.get_capacity())
         self.state = chan.get_state_for_GUI()
         self.local_ctn = chan.get_latest_ctn(LOCAL)
         self.remote_ctn = chan.get_latest_ctn(REMOTE)
         self.local_csv = chan.config[LOCAL].to_self_delay
         self.remote_csv = chan.config[REMOTE].to_self_delay
         self.initiator = 'Local' if chan.constraints.is_initiator else 'Remote'
-        self.feerate = chan.get_latest_feerate(LOCAL)
+        feerate_kw = chan.get_latest_feerate(LOCAL)
+        self.feerate = str(quantize_feerate(Transaction.satperbyte_from_satperkw(feerate_kw)))
         self.can_send = self.app.format_amount_and_units(chan.available_to_spend(LOCAL) // 1000)
         self.can_receive = self.app.format_amount_and_units(chan.available_to_spend(REMOTE) // 1000)
         self.is_open = chan.is_open()
@@ -518,13 +522,37 @@ class ChannelDetailsPopup(Popup, Logger):
         self.app.qr_dialog(_("Channel Backup " + self.chan.short_id_for_GUI()), text, help_text=help_text)
 
     def force_close(self):
-        Question(_('Force-close channel?'), self._force_close).open()
-
-    def _force_close(self, b):
-        if not b:
-            return
         if self.chan.is_closed():
             self.app.show_error(_('Channel already closed'))
+            return
+        to_self_delay = self.chan.config[REMOTE].to_self_delay
+        help_text = ' '.join([
+            _('If you force-close this channel, the funds you have in it will not be available for {} blocks.').format(to_self_delay),
+            _('During that time, funds will not be recoverabe from your seed, and may be lost if you lose your device.'),
+            _('To prevent that, please save this channel backup.'),
+            _('It may be imported in another wallet with the same seed.')
+        ])
+        title = _('Save backup and force-close')
+        data = self.app.wallet.lnworker.export_channel_backup(self.chan.channel_id)
+        popup = QRDialog(
+            title, data,
+            show_text=False,
+            text_for_clipboard=data,
+            help_text=help_text,
+            close_button_text=_('Next'),
+            on_close=self._confirm_force_close)
+        popup.open()
+
+    def _confirm_force_close(self):
+        Question(
+            _('Confirm force close?'),
+            self._do_force_close,
+            title=_('Force-close channel'),
+            no_str=_('Cancel'),
+            yes_str=_('Proceed')).open()
+
+    def _do_force_close(self, b):
+        if not b:
             return
         loop = self.app.wallet.network.asyncio_loop
         coro = asyncio.run_coroutine_threadsafe(self.app.wallet.lnworker.force_close_channel(self.chan.channel_id), loop)
@@ -586,15 +614,14 @@ class LightningChannelsDialog(Factory.Popup):
             return
         lnworker = self.app.wallet.lnworker
         channels = list(lnworker.channels.values()) if lnworker else []
-        lnbackups = self.app.wallet.lnbackups
-        backups = list(lnbackups.channel_backups.values())
+        backups = list(lnworker.channel_backups.values()) if lnworker else []
         for i in channels + backups:
             item = Factory.LightningChannelItem()
             item.screen = self
             item.active = not i.is_closed()
             item.is_backup = i.is_backup()
             item._chan = i
-            item.node_alias = lnworker.get_node_alias(i.node_id)
+            item.node_alias = lnworker.get_node_alias(i.node_id) or i.node_id.hex()
             self.update_item(item)
             channel_cards.add_widget(item)
         self.update_can_send()

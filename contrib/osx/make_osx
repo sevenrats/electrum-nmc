@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Parameterize
-PYTHON_VERSION=3.7.9
+PYTHON_VERSION=3.7.10
 BUILDDIR=/tmp/electrum-nmc-build
 PACKAGE=Electrum-NMC
 GIT_REPO=https://github.com/namecoin/electrum-nmc
