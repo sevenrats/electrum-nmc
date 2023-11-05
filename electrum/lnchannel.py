@@ -59,7 +59,7 @@ from .lnhtlc import HTLCManager
 from .lnmsg import encode_msg, decode_msg
 from .address_synchronizer import TX_HEIGHT_LOCAL
 from .lnutil import CHANNEL_OPENING_TIMEOUT
-from .lnutil import ChannelBackupStorage
+from .lnutil import ChannelBackupStorage, ImportedChannelBackupStorage, OnchainChannelBackupStorage
 from .lnutil import format_short_channel_id
 
 if TYPE_CHECKING:
@@ -148,7 +148,7 @@ class AbstractChannel(Logger, ABC):
     _fallback_sweep_address: str
     channel_id: bytes
     funding_outpoint: Outpoint
-    node_id: bytes
+    node_id: bytes  # note that it might not be the full 33 bytes; for OCB it is only the prefix
     _state: ChannelState
 
     def set_short_channel_id(self, short_id: ShortChannelID) -> None:
@@ -169,7 +169,7 @@ class AbstractChannel(Logger, ABC):
         old_state = self._state
         if (old_state, state) not in state_transitions:
             raise Exception(f"Transition not allowed: {old_state.name} -> {state.name}")
-        self.logger.debug(f'Setting channel state: {old_state.name} -> {state.name}')
+        self.logger.debug(f'({self.get_id_for_log()}) Setting channel state: {old_state.name} -> {state.name}')
         self._state = state
         self.storage['state'] = self._state.name
         if self.lnworker:
@@ -301,9 +301,13 @@ class AbstractChannel(Logger, ABC):
             if conf > 0:
                 self.set_state(ChannelState.CLOSED)
             else:
-                # we must not trust the server with unconfirmed transactions
-                # if the remote force closed, we remain OPEN until the closing tx is confirmed
-                pass
+                # we must not trust the server with unconfirmed transactions,
+                # because the state transition is irreversible. if the remote
+                # force closed, we remain OPEN until the closing tx is confirmed
+                self.unconfirmed_closing_txid = closing_txid
+                if self.lnworker:
+                    util.trigger_callback('channel', self.lnworker.wallet, self)
+
         if self.get_state() == ChannelState.CLOSED and not keep_watching:
             self.set_state(ChannelState.REDEEMED)
 
@@ -333,9 +337,11 @@ class AbstractChannel(Logger, ABC):
     def get_funding_address(self) -> str:
         pass
 
-    @abstractmethod
     def get_state_for_GUI(self) -> str:
-        pass
+        cs = self.get_state()
+        if cs <= ChannelState.OPEN and self.unconfirmed_closing_txid:
+            return 'FORCE-CLOSING'
+        return cs.name
 
     @abstractmethod
     def get_oldest_unrevoked_ctn(self, subject: HTLCOwner) -> int:
@@ -385,6 +391,11 @@ class AbstractChannel(Logger, ABC):
     def is_static_remotekey_enabled(self) -> bool:
         pass
 
+    @abstractmethod
+    def get_local_pubkey(self) -> bytes:
+        """Returns our node ID."""
+        pass
+
 
 class ChannelBackup(AbstractChannel):
     """
@@ -400,11 +411,22 @@ class ChannelBackup(AbstractChannel):
         self.name = None
         Logger.__init__(self)
         self.cb = cb
+        self.is_imported = isinstance(self.cb, ImportedChannelBackupStorage)
         self._sweep_info = {}
         self._fallback_sweep_address = sweep_address
         self.storage = {} # dummy storage
         self._state = ChannelState.OPENING
+        self.node_id = cb.node_id if self.is_imported else cb.node_id_prefix
+        self.channel_id = cb.channel_id()
+        self.funding_outpoint = cb.funding_outpoint()
+        self.lnworker = lnworker
+        self.short_channel_id = None
         self.config = {}
+        if self.is_imported:
+            self.init_config(cb)
+        self.unconfirmed_closing_txid = None # not a state, only for GUI
+
+    def init_config(self, cb):
         self.config[LOCAL] = LocalConfig.from_seed(
             channel_seed=cb.channel_seed,
             to_self_delay=cb.local_delay,
@@ -440,11 +462,9 @@ class ChannelBackup(AbstractChannel):
             next_per_commitment_point=None,
             current_per_commitment_point=None,
             upfront_shutdown_script='')
-        self.node_id = cb.node_id
-        self.channel_id = cb.channel_id()
-        self.funding_outpoint = cb.funding_outpoint()
-        self.lnworker = lnworker
-        self.short_channel_id = None
+
+    def can_be_deleted(self):
+        return self.is_imported or self.is_redeemed()
 
     def get_capacity(self):
         return self.lnworker.lnwatcher.get_tx_delta(self.funding_outpoint.txid, self.cb.funding_address)
@@ -455,23 +475,18 @@ class ChannelBackup(AbstractChannel):
     def create_sweeptxs_for_their_ctx(self, ctx):
         return {}
 
+    def create_sweeptxs_for_our_ctx(self, ctx):
+        if self.is_imported:
+            return create_sweeptxs_for_our_ctx(chan=self, ctx=ctx, sweep_address=self.sweep_address)
+        else:
+            # backup from op_return
+            return {}
+
     def get_funding_address(self):
         return self.cb.funding_address
 
     def is_initiator(self):
         return self.cb.is_initiator
-
-    def short_id_for_GUI(self) -> str:
-        if self.short_channel_id:
-            return 'BACKUP of ' + format_short_channel_id(self.short_channel_id)
-        else:
-            return 'BACKUP'
-
-    def get_state_for_GUI(self):
-        if self.lnworker:
-            return self.lnworker.lnwatcher.get_channel_status(self.funding_outpoint.to_str())
-        else:
-            return 'unknown'
 
     def get_oldest_unrevoked_ctn(self, who):
         return -1
@@ -503,6 +518,14 @@ class ChannelBackup(AbstractChannel):
         # their local config is not static)
         return False
 
+    def get_local_pubkey(self) -> bytes:
+        cb = self.cb
+        assert isinstance(cb, ChannelBackupStorage)
+        if isinstance(cb, ImportedChannelBackupStorage):
+            return ecc.ECPrivkey(cb.privkey).get_public_key_bytes(compressed=True)
+        if isinstance(cb, OnchainChannelBackupStorage):
+            return self.lnworker.node_keypair.pubkey
+        raise NotImplementedError(f"unexpected cb type: {type(cb)}")
 
 
 class Channel(AbstractChannel):
@@ -543,6 +566,13 @@ class Channel(AbstractChannel):
         self._receive_fail_reasons = {}  # type: Dict[int, (bytes, OnionRoutingFailure)]
         self._ignore_max_htlc_value = False  # used in tests
         self.should_request_force_close = False
+        self.unconfirmed_closing_txid = None # not a state, only for GUI
+
+    def has_onchain_backup(self):
+        return self.storage.get('has_onchain_backup', False)
+
+    def can_be_deleted(self):
+        return self.is_redeemed()
 
     def get_capacity(self):
         return self.constraints.capacity
@@ -717,14 +747,13 @@ class Channel(AbstractChannel):
             self.peer_state = PeerState.GOOD
 
     def get_state_for_GUI(self):
-        # status displayed in the GUI
-        cs = self.get_state()
-        if self.is_closed():
-            return cs.name
+        cs_name = super().get_state_for_GUI()
+        if self.is_closed() or self.unconfirmed_closing_txid:
+            return cs_name
         ps = self.peer_state
         if ps != PeerState.GOOD:
             return ps.name
-        return cs.name
+        return cs_name
 
     def set_can_send_ctx_updates(self, b: bool) -> None:
         self._can_send_ctx_updates = b
