@@ -9,6 +9,7 @@ from electrum.gui.kivy.i18n import _
 from electrum.plugin import run_hook
 from electrum import coinchooser
 
+from electrum.gui import messages
 from electrum.gui.kivy import KIVY_GUI_PATH
 
 from .choice_dialog import ChoiceDialog
@@ -16,6 +17,7 @@ from .choice_dialog import ChoiceDialog
 Builder.load_string('''
 #:import partial functools.partial
 #:import _ electrum.gui.kivy.i18n._
+#:import messages electrum.gui.messages
 
 <SettingsDialog@Popup>
     id: settings
@@ -81,17 +83,17 @@ Builder.load_string('''
                     action: root.change_password
                 CardSeparator
                 SettingsItem:
+                    status: _('Yes') if app.use_recoverable_channels else _('No')
+                    title: _('Create recoverable channels') + ': ' + self.status
+                    description: _("Add channel recovery data to funding transaction.")
+                    message: _(messages.MSG_RECOVERABLE_CHANNELS)
+                    action: partial(root.boolean_dialog, 'use_recoverable_channels', _('Create recoverable channels'), self.message)
+                CardSeparator
+                SettingsItem:
                     status: _('Trampoline') if not app.use_gossip else _('Gossip')
                     title: _('Lightning Routing') + ': ' + self.status
                     description: _("Use trampoline routing or gossip.")
                     action: partial(root.routing_dialog, self)
-                CardSeparator
-                SettingsItem:
-                    status: _('Yes') if app.android_backups else _('No')
-                    title: _('Backups') + ': ' + self.status
-                    description: _("Backup wallet to external storage.")
-                    message: _("If this option is checked, a backup of your wallet will be written to external storage everytime you create a new channel. Make sure your wallet is protected with a strong password before you enable this option.")
-                    action: partial(root.boolean_dialog, 'android_backups', _('Backups'), self.message)
 
                 # disabled: there is currently only one coin selection policy
                 #CardSeparator
@@ -132,7 +134,7 @@ class SettingsDialog(Factory.Popup):
         self.app.change_password(self.update)
 
     def change_pin_code(self, label, dt):
-        self.app.change_pin_code(self.update)
+        self.app.pin_code_dialog(self.update)
 
     def language_dialog(self, item, dt):
         if self._language_dialog is None:
@@ -154,11 +156,7 @@ class SettingsDialog(Factory.Popup):
         self._unit_dialog.open()
 
     def routing_dialog(self, item, dt):
-        description = \
-            _('Lightning payments require finding a path through the Lightning Network.')\
-            + ' ' + ('You may use trampoline routing, or local routing (gossip).')\
-            + ' ' + ('Downloading the network gossip uses quite some bandwidth and storage, and is not recommended on mobile devices.')\
-            + ' ' + ('If you use trampoline, you can only open channels with trampoline nodes.')
+        description = _(messages.MSG_HELP_TRAMPOLINE)
         def cb(text):
             self.app.use_gossip = (text == 'Gossip')
         dialog = ChoiceDialog(

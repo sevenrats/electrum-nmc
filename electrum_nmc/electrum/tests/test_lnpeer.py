@@ -29,6 +29,7 @@ from electrum.lnrouter import LNPathFinder, PathEdge, LNPathInconsistent
 from electrum.channel_db import ChannelDB
 from electrum.lnworker import LNWallet, NoPathFound
 from electrum.lnmsg import encode_msg, decode_msg
+from electrum import lnmsg
 from electrum.logging import console_stderr_handler, Logger
 from electrum.lnworker import PaymentInfo, RECEIVED
 from electrum.lnonion import OnionFailureCode
@@ -115,6 +116,7 @@ class MockWallet:
 class MockLNWallet(Logger, NetworkRetryManager[LNPeerAddr]):
     MPP_EXPIRY = 2  # HTLC timestamps are cast to int, so this cannot be 1
     TIMEOUT_SHUTDOWN_FAIL_PENDING_HTLCS = 0
+    INITIAL_TRAMPOLINE_FEE_LEVEL = 0
 
     def __init__(self, *, local_keypair: Keypair, chans: Iterable['Channel'], tx_queue, name):
         self.name = name
@@ -300,7 +302,7 @@ class SquareGraph(NamedTuple):
 
 
 class PaymentDone(Exception): pass
-class TestSuccess(Exception): pass
+class SuccessfulTest(Exception): pass
 
 
 class TestPeer(TestCaseForTestnet):
@@ -934,7 +936,7 @@ class TestPeer(TestCaseForTestnet):
             # Dave is supposed to have failed the pending incomplete MPP HTLCs
             self.assertEqual(0, len(graph.chan_dc.hm.htlcs(LOCAL)))
             self.assertEqual(0, len(graph.chan_dc.hm.htlcs(REMOTE)))
-            raise TestSuccess()
+            raise SuccessfulTest()
 
         async def f():
             async with TaskGroup() as group:
@@ -944,7 +946,7 @@ class TestPeer(TestCaseForTestnet):
                 await asyncio.sleep(0.2)
                 await group.spawn(pay())
 
-        with self.assertRaises(TestSuccess):
+        with self.assertRaises(SuccessfulTest):
             run(f())
 
     @needs_test_with_all_chacha20_implementations
@@ -1085,6 +1087,95 @@ class TestPeer(TestCaseForTestnet):
             await asyncio.gather(pay, p1._message_loop(), p2._message_loop(), p1.htlc_switch(), p2.htlc_switch())
         with self.assertRaises(PaymentFailure):
             run(f())
+
+    @needs_test_with_all_chacha20_implementations
+    def test_sending_weird_messages_that_should_be_ignored(self):
+        alice_channel, bob_channel = create_test_channels()
+        p1, p2, w1, w2, _q1, _q2 = self.prepare_peers(alice_channel, bob_channel)
+
+        async def send_weird_messages():
+            await asyncio.wait_for(p1.initialized, 1)
+            await asyncio.wait_for(p2.initialized, 1)
+            # peer1 sends known message with trailing garbage
+            # BOLT-01 says peer2 should ignore trailing garbage
+            raw_msg1 = encode_msg('ping', num_pong_bytes=4, byteslen=4) + bytes(range(55))
+            p1.transport.send_bytes(raw_msg1)
+            await asyncio.sleep(0.05)
+            # peer1 sends unknown 'odd-type' message
+            # BOLT-01 says peer2 should ignore whole message
+            raw_msg2 = (43333).to_bytes(length=2, byteorder="big") + bytes(range(55))
+            p1.transport.send_bytes(raw_msg2)
+            await asyncio.sleep(0.05)
+            raise SuccessfulTest()
+
+        async def f():
+            async with TaskGroup() as group:
+                for peer in [p1, p2]:
+                    await group.spawn(peer._message_loop())
+                    await group.spawn(peer.htlc_switch())
+                await asyncio.sleep(0.2)
+                await group.spawn(send_weird_messages())
+
+        with self.assertRaises(SuccessfulTest):
+            run(f())
+
+    @needs_test_with_all_chacha20_implementations
+    def test_sending_weird_messages__unknown_even_type(self):
+        alice_channel, bob_channel = create_test_channels()
+        p1, p2, w1, w2, _q1, _q2 = self.prepare_peers(alice_channel, bob_channel)
+
+        async def send_weird_messages():
+            await asyncio.wait_for(p1.initialized, 1)
+            await asyncio.wait_for(p2.initialized, 1)
+            # peer1 sends unknown 'even-type' message
+            # BOLT-01 says peer2 should close the connection
+            raw_msg2 = (43334).to_bytes(length=2, byteorder="big") + bytes(range(55))
+            p1.transport.send_bytes(raw_msg2)
+            await asyncio.sleep(0.05)
+
+        failing_task = None
+        async def f():
+            nonlocal failing_task
+            async with TaskGroup() as group:
+                await group.spawn(p1._message_loop())
+                await group.spawn(p1.htlc_switch())
+                failing_task = await group.spawn(p2._message_loop())
+                await group.spawn(p2.htlc_switch())
+                await asyncio.sleep(0.2)
+                await group.spawn(send_weird_messages())
+
+        with self.assertRaises(lnmsg.UnknownMandatoryMsgType):
+            run(f())
+        self.assertTrue(isinstance(failing_task.exception(), lnmsg.UnknownMandatoryMsgType))
+
+    @needs_test_with_all_chacha20_implementations
+    def test_sending_weird_messages__known_msg_with_insufficient_length(self):
+        alice_channel, bob_channel = create_test_channels()
+        p1, p2, w1, w2, _q1, _q2 = self.prepare_peers(alice_channel, bob_channel)
+
+        async def send_weird_messages():
+            await asyncio.wait_for(p1.initialized, 1)
+            await asyncio.wait_for(p2.initialized, 1)
+            # peer1 sends known message with insufficient length for the contents
+            # BOLT-01 says peer2 should fail the connection
+            raw_msg1 = encode_msg('ping', num_pong_bytes=4, byteslen=4)[:-1]
+            p1.transport.send_bytes(raw_msg1)
+            await asyncio.sleep(0.05)
+
+        failing_task = None
+        async def f():
+            nonlocal failing_task
+            async with TaskGroup() as group:
+                await group.spawn(p1._message_loop())
+                await group.spawn(p1.htlc_switch())
+                failing_task = await group.spawn(p2._message_loop())
+                await group.spawn(p2.htlc_switch())
+                await asyncio.sleep(0.2)
+                await group.spawn(send_weird_messages())
+
+        with self.assertRaises(lnmsg.UnexpectedEndOfStream):
+            run(f())
+        self.assertTrue(isinstance(failing_task.exception(), lnmsg.UnexpectedEndOfStream))
 
 
 def run(coro):
