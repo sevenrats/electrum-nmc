@@ -687,7 +687,7 @@ class Transaction:
         # the estimation will not be precise.
         if addr is None:
             return 'p2wpkh'
-        witver, witprog = segwit_addr.decode(constants.net.SEGWIT_HRP, addr)
+        witver, witprog = segwit_addr.decode_segwit_address(constants.net.SEGWIT_HRP, addr)
         if witprog is not None:
             return 'p2wpkh'
         addrtype, hash_160_ = b58_address_to_hash160(addr)
@@ -908,6 +908,11 @@ class Transaction:
     @classmethod
     def virtual_size_from_weight(cls, weight):
         return weight // 4 + (weight % 4 > 0)
+
+    @classmethod
+    def satperbyte_from_satperkw(cls, feerate_kw):
+        """Converts feerate from sat/kw to sat/vbyte."""
+        return feerate_kw * 4 / 1000
 
     def estimated_total_size(self):
         """Return an estimated total transaction size in bytes."""
@@ -1163,8 +1168,16 @@ class PartialTxInput(TxInput, PSBTSection):
         return self._utxo
 
     @utxo.setter
-    def utxo(self, value: Optional[Transaction]):
-        self._utxo = value
+    def utxo(self, tx: Optional[Transaction]):
+        if tx is None:
+            return
+        # note that tx might be a PartialTransaction
+        # serialize and de-serialize tx now. this might e.g. convert a complete PartialTx to a Tx
+        tx = tx_from_any(str(tx))
+        # 'utxo' field in PSBT cannot be another PSBT:
+        if not tx.is_complete():
+            return
+        self._utxo = tx
         self.validate_data()
         self.ensure_there_is_only_one_utxo()
 
