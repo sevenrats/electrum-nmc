@@ -92,6 +92,7 @@ class BitcoinMainnet(AbstractNet):
     LN_DNS_SEEDS = [
         'nodes.lightning.directory.',
         'lseed.bitcoinstats.com.',
+        'lseed.darosior.ninja',
     ]
 
     AUXPOW_CHAIN_ID = 0x0001
