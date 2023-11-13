@@ -246,17 +246,16 @@ task:
     - tar -xzf Electrum.tar.gz
     - cp -a electrum/tests Electrum*/electrum/
     # Bitcoin Core uses a different home directory on macOS
-    - sed -i '' 's#^mkdir -p ~/.bitcoin#mkdir -p "/Users/$USER/Library/Application Support/Bitcoin"#' electrum/tests/regtest/run_bitcoind.sh
-    - sed -i '' 's#^cat > ~/.bitcoin/bitcoin.conf#cat > "/Users/$USER/Library/Application Support/Bitcoin/bitcoin.conf"#' electrum/tests/regtest/run_bitcoind.sh
+    - sed -i '' 's#^mkdir -p ~/.namecoin#mkdir -p "/Users/$USER/Library/Application Support/Namecoin"#' electrum/tests/regtest/run_bitcoind.sh
+    - sed -i '' 's#^cat > ~/.namecoin/namecoin.conf#cat > "/Users/$USER/Library/Application Support/Namecoin/namecoin.conf"#' electrum/tests/regtest/run_bitcoind.sh
     - pip3 install .[tests]
     - brew install autoconf automake libtool coreutils jq screen
     - Electrum*/contrib/make_libsecp256k1.sh
-    - BITCOIND_VERSION=$(curl https://bitcoincore.org/en/download/ | grep -E -i --only-matching 'Latest version:\s[0-9\\.]+' | grep -E --only-matching '[0-9\\.]+')
-    - BITCOIND_FILENAME=bitcoin-$BITCOIND_VERSION-arm64-apple-darwin.tar.gz
+    - BITCOIND_URL=$(curl https://www.namecoin.org/download/ | grep x86_64-linux-gnu.tar.gz | grep -v 0.13.99 | grep --only-matching https://.*.tar.gz)
+    - BITCOIND_FILENAME=$(echo $BITCOIND_URL | grep -E --only-matching 'namecoin-nc.*.tar.gz')
     - BITCOIND_PATH=/tmp/bitcoind/$BITCOIND_FILENAME
-    - BITCOIND_URL=https://bitcoincore.org/bin/bitcoin-core-$BITCOIND_VERSION/$BITCOIND_FILENAME
     - tar -xzf $BITCOIND_PATH || (rm -f /tmp/bitcoind/* && curl --output $BITCOIND_PATH $BITCOIND_URL && tar -xzf $BITCOIND_PATH)
-    - sudo cp -a bitcoin-$BITCOIND_VERSION/* /usr/local
+    - sudo cp -a namecoin-*/* /usr/local
   bitcoind_service_background_script:
     - electrum/tests/regtest/run_bitcoind.sh
   electrumx_service_background_script:
@@ -266,7 +265,7 @@ task:
   regtest_script:
     - cd Electrum*/
     - sleep 20
-    - python3 -m unittest electrum/tests/regtest.py
+    - python3 -m unittest electrum_nmc/electrum/tests/regtest.py
   env:
     ELECTRUM_REQUIREMENTS: contrib/requirements/requirements.txt
     # ElectrumX exits with an error without this:
