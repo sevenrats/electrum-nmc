@@ -20,8 +20,9 @@ task:
            ELECTRUM_PYTHON_VERSION: 3.9
        - env:
            ELECTRUM_PYTHON_VERSION: 3
-       - env:
-           ELECTRUM_PYTHON_VERSION: rc
+       # Disabled until we merge the libsecp256k1 bump from upstream Electrum.
+       #- env:
+       #    ELECTRUM_PYTHON_VERSION: rc
     - name: Tox PyPy
       allow_failures: true
       env:
@@ -41,7 +42,7 @@ task:
     - git tag
   install_script:
     - apt-get update
-    - apt-get -y install libsecp256k1-0
+    - apt-get -y install libsecp256k1-1
     - pip install -r $ELECTRUM_REQUIREMENTS
   tox_script:
     - tox
