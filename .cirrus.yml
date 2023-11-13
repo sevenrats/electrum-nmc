@@ -129,7 +129,7 @@ task:
     - env:
         Binaries: 'Tarball'
       depends_on:
-        - "linter: Flake8 Mandatory"
+        - "Flake8 Mandatory"
     - env:
         Binaries: 'AppImage'
       app_image_setup:
@@ -139,8 +139,8 @@ task:
         - curl -o run_electrum_nmc https://api.cirrus-ci.com/v1/artifact/build/$CIRRUS_BUILD_ID/build:%20AppImage/binaries/dist/electrum-$VERSION-x86_64.AppImage
         - chmod u+x run_electrum_nmc
       depends_on:
-        - "build: AppImage"
-        - "linter: Flake8 Mandatory"
+        - "AppImage build"
+        - "Flake8 Mandatory"
   regtest_script:
     - sleep 10s
     - python3 -m unittest electrum_nmc/electrum/tests/regtest.py
@@ -271,7 +271,7 @@ task:
     # ElectrumX exits with an error without this:
     ALLOW_ROOT: 1
   depends_on:
-    - "build: tarball"
+    - "tarball build"
 
 task:
   name: AppImage build
