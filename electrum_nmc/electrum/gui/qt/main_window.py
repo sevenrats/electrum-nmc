@@ -56,7 +56,7 @@ from electrum import (keystore, ecc, constants, util, bitcoin, commands,
 from electrum.bitcoin import COIN, is_address
 from electrum.plugin import run_hook, BasePlugin
 from electrum.i18n import _
-from electrum.names import format_name_identifier, get_wallet_name_count, name_new_mature_in
+from electrum.names import format_name_identifier, get_wallet_name_count, name_new_mature_in, name_from_str, name_to_str, Encoding
 from electrum.util import (format_time,
                            UserCancelled, profiler,
                            bh2u, bfh, InvalidPassword,
@@ -3427,10 +3427,17 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         self.buy_names_ui = Ui_BuyNamesPage()
         self.buy_names_ui.setupUi(w)
 
-        # TODO: allow hex names
-        self.buy_names_new_name_lineedit = self.buy_names_ui.registerName
-        self.buy_names_new_name_lineedit.textChanged.connect(self.update_buy_names_preview)
+        self.buy_names_new_name_ascii_lineedit = self.buy_names_ui.registerNameAscii
+        self.buy_names_new_name_ascii_lineedit.textEdited.connect(self.update_register_name_from_ascii)
+        
+        self.buy_names_new_name_hex_lineedit = self.buy_names_ui.registerNameHex
+        self.buy_names_new_name_hex_lineedit.textChanged.connect(self.update_buy_names_preview)
+        self.buy_names_new_name_hex_lineedit.textEdited.connect(self.update_register_name_from_hex)
 
+
+        self.buy_names_new_name_domain_lineedit = self.buy_names_ui.registerNameDomain
+        self.buy_names_new_name_domain_lineedit.textEdited.connect(self.update_register_name_from_domain)
+        
         self.buy_names_preview_label = self.buy_names_ui.previewLabel
 
         self.buy_names_check_name_availability_button = self.buy_names_ui.checkNameButton
@@ -3445,18 +3452,79 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         return w
 
     def update_buy_names_preview(self):
-        # TODO: handle non-ASCII encodings
-        identifier = self.buy_names_new_name_lineedit.text().encode('ascii')
-        identifier_formatted = format_name_identifier(identifier)
-        self.buy_names_preview_label.setText(_("Name to register: ") + identifier_formatted)
-
-        self.buy_names_status_label.setText(_(""))
         self.buy_names_register_button.hide()
+        self.buy_names_status_label.setText("")
+        try:
+            identifier_hex = self.buy_names_new_name_hex_lineedit.text()
+
+            identifier = name_from_str(identifier_hex, Encoding.HEX)
+            identifier_formatted = format_name_identifier(identifier)
+            self.buy_names_preview_label.setText(_("Name to register: ") + identifier_formatted)
+
+            self.buy_names_check_name_availability_button.setEnabled(True)
+        except Exception as e:
+            self.buy_names_preview_label.setText(f"Error: {e}")
+            self.buy_names_check_name_availability_button.setEnabled(False)
+
+    def update_register_name_from_hex(self):
+        try:
+            identifier_hex = self.buy_names_new_name_hex_lineedit.text()
+            identifier = name_from_str(identifier_hex, Encoding.HEX)
+
+            try:
+                identifier_ascii = name_to_str(identifier, Encoding.ASCII)
+                self.buy_names_new_name_ascii_lineedit.setText(identifier_ascii)
+                if identifier_hex.startswith("642f"):
+                    domain_text = identifier_ascii[len("d/"):] + ".bit"
+                else:
+                    domain_text = ""
+                self.buy_names_new_name_domain_lineedit.setText(domain_text)
+            except Exception as e:
+                # This pass statement allows valid hex that is invalid ASCII to be handled gracefully
+                pass
+                
+        except Exception as e:
+            self.buy_names_preview_label.setText(f"Error: {e}")
+            self.buy_names_check_name_availability_button.setEnabled(False)
+
+    def update_register_name_from_ascii(self):
+        try:
+            identifier_ascii = self.buy_names_new_name_ascii_lineedit.text()
+            identifier = name_from_str(identifier_ascii, Encoding.ASCII)
+            identifier_hex = name_to_str(identifier, Encoding.HEX)
+            self.buy_names_new_name_hex_lineedit.setText(identifier_hex)
+            if identifier_hex.startswith("642f"):
+                domain_text = identifier_ascii[len("d/"):] + ".bit"
+                self.buy_names_new_name_domain_lineedit.setText(domain_text)
+            else:
+                self.buy_names_new_name_domain_lineedit.setText("")
+        except Exception as e:
+            self.buy_names_preview_label.setText(f"Error: {e}")
+            self.buy_names_check_name_availability_button.setEnabled(False)  
+
+    def update_register_name_from_domain(self):
+        try:
+            domain_text = self.buy_names_new_name_domain_lineedit.text()
+
+            if domain_text.endswith(".bit"):
+                # If the input ends with ".bit", add "642f" prefix and the rest of the identifier
+                domain_text_without_tld = domain_text[:-len(".bit")].encode('ascii')
+                identifier_hex = name_to_str(domain_text_without_tld, Encoding.HEX)
+                self.buy_names_new_name_hex_lineedit.setText("642f" + identifier_hex)
+                self.buy_names_new_name_ascii_lineedit.setText("d/" + domain_text[:-len(".bit")])
+                self.update_buy_names_preview()
+            else:
+                # Otherwise, block the user from registering the name
+                raise ValueError("Domain must end with '.bit'")
+
+            self.buy_names_check_name_availability_button.setEnabled(True)
+        except ValueError as e:
+            self.buy_names_preview_label.setText(f"Error: {e}")
+            self.buy_names_check_name_availability_button.setEnabled(False)
 
     def check_name_availability(self):
-        # TODO: handle non-ASCII encodings
-        identifier_ascii = self.buy_names_new_name_lineedit.text()
-        identifier = identifier_ascii.encode('ascii')
+        identifier_hex = self.buy_names_new_name_hex_lineedit.text()
+        identifier = name_from_str(identifier_hex, Encoding.HEX)
 
         identifier_formatted = format_name_identifier(identifier)
 
@@ -3474,7 +3542,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
         try:
             # First we try looking up the name in the local wallet via
             # name_list.
-            name_list_result = name_list(identifier=identifier_ascii, wallet=self.wallet)
+            name_list_result = name_list(identifier=identifier_hex, wallet=self.wallet, name_encoding=Encoding.HEX, value_encoding=Encoding.HEX)
             for name_list_item in name_list_result:
                 # We should only have 0 or 1 items.
                 if not name_list_item["expired"] and name_list_item["ismine"]:
@@ -3517,7 +3585,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             # UNO has under 12 confirmations, then we do a lookup operation via
             # name_show.
             if not name_mine and not name_pending_mine and not name_snipe_pending_mine:
-                name_show_result = name_show(identifier_ascii, wallet=self.wallet)
+                name_show_result = name_show(identifier_hex, wallet=self.wallet, name_encoding=Encoding.HEX, value_encoding=Encoding.HEX)
                 name_mine = name_show_result["ismine"]
         except commands.NameUnconfirmedError:
             name_pending_unverified = True
@@ -3565,9 +3633,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger):
             self.buy_names_status_label.setText(identifier_formatted + _(" is available to register!"))
 
     def register_new_name(self):
-        # TODO: handle non-ASCII encodings
-        identifier_ascii = self.buy_names_new_name_lineedit.text()
-        identifier = identifier_ascii.encode('ascii')
+        identifier_hex = self.buy_names_new_name_hex_lineedit.text()
+        identifier = name_from_str(identifier_hex, Encoding.HEX)
 
         initial_value = b''
 
