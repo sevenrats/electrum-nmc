@@ -404,7 +404,7 @@ function wait_for_chain_sync()
             break
         fi
 
-        sleep 1s
+        sleep 1
     done
 }
 
@@ -690,13 +690,13 @@ if [[ $1 == "name_ant_workflow" ]]; then
 
     echo "Alice registers name"
     $alice name_autoregister "x/name" --value "value"
-    sleep 5s
+    sleep 5
     new_blocks 12
     wait_for_chain_sync "$alice"
     wait_for_chain_sync "$bob"
     # TODO: Remove this line once daemon mode automatically does this.
     $alice updatequeuedtransactions
-    sleep 5s
+    sleep 5
     new_blocks 12
     wait_for_chain_sync "$alice"
     wait_for_chain_sync "$bob"
@@ -712,7 +712,7 @@ if [[ $1 == "name_ant_workflow" ]]; then
     assert_raises_error "$bob name_buy x/name2 0.04 --value value2 --offer $offer" "name identifier mismatch"
     completed_offer=$($bob name_buy x/name 0.04 --value value2 --offer $offer)
     $bob broadcast $completed_offer
-    sleep 5s
+    sleep 5
     new_blocks 12
     wait_for_chain_sync "$alice"
     wait_for_chain_sync "$bob"
@@ -728,7 +728,7 @@ if [[ $1 == "name_ant_workflow" ]]; then
     assert_raises_error "$bob name_sell x/name2 0.005 --offer $offer" "name identifier mismatch"
     completed_offer=$($bob name_sell x/name 0.005 --offer $offer)
     $bob broadcast $completed_offer
-    sleep 5s
+    sleep 5
     new_blocks 12
     wait_for_chain_sync "$alice"
     wait_for_chain_sync "$bob"

@@ -215,28 +215,49 @@ task:
   bitcoind_cache:
     folder: /tmp/bitcoind
     populate_script: mkdir -p /tmp/bitcoind
-  install_electrumx_script:
-    - brew install leveldb
-    - export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
-    - export CPATH="$CPATH:$(brew --prefix)/include"
-    - CFLAGS="-I/opt/homebrew/include/ -L/opt/homebrew/lib/ -fno-rtti" pip3 install --force-reinstall --global-option="build_ext" plyvel --no-cache-dir
-    # install e-x some commits after 1.16.0 tag
-    - pip3 install git+https://github.com/spesmilo/electrumx.git@4e66804dc0d668cd6bd4602b547e2f5b2e227e97
-    - PYTHON_VERSION=$(python3 -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
-    # Workaround for macOS limitation: To prevent ElectrumX from setting the maximum allowed sessions to zero
-    - sed -i '' 's/return value/return 200/g' /Users/$USER/Library/Python/$PYTHON_VERSION/lib/python/site-packages/electrumx/server/env.py
+  matrix:
+    - env:
+        ELECTRUM_PROTOCOL: '1.4.1'
+      install_electrumx_script:
+        - brew install leveldb
+        - export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
+        - export CPATH="$CPATH:$(brew --prefix)/include"
+        - CFLAGS="-I/opt/homebrew/include/ -L/opt/homebrew/lib/ -fno-rtti" pip3 install --force-reinstall --global-option="build_ext" plyvel --no-cache-dir
+        - pip3 install electrumx==1.15.0
+        - PYTHON_VERSION=$(python3 -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
+        # Workaround for macOS limitation: To prevent ElectrumX from setting the maximum allowed sessions to zero
+        - sed -i '' 's/return value/return 200/g' /Users/$USER/Library/Python/$PYTHON_VERSION/lib/python/site-packages/electrumx/server/env.py
+    - env:
+        ELECTRUM_PROTOCOL: '1.4.3'
+      protocol_version_script:
+        - sed -i.bak s/1.4.1/$ELECTRUM_PROTOCOL/g electrum_nmc/electrum/version.py
+      install_electrumx_script:
+        - brew install leveldb
+        - export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
+        - export CPATH="$CPATH:$(brew --prefix)/include"
+        - CFLAGS="-I/opt/homebrew/include/ -L/opt/homebrew/lib/ -fno-rtti" pip3 install --force-reinstall --global-option="build_ext" plyvel --no-cache-dir
+        - git clone https://github.com/JeremyRand/electrumx.git
+        - cd electrumx
+        - git checkout origin/namecoin-1rt-1.15.0
+        - pip3 install .
+        - cd ..
+        - PYTHON_VERSION=$(python3 -c "print('.'.join(map(str, __import__('sys').version_info[:2])))")
+        # Workaround for macOS limitation: To prevent ElectrumX from setting the maximum allowed sessions to zero
+        - sed -i '' 's/return value/return 200/g' /Users/$USER/Library/Python/$PYTHON_VERSION/lib/python/site-packages/electrumx/server/env.py 
   install_script:
     - ELECTRUM_VERSION=$(grep -o "ELECTRUM_VERSION = '.*'" electrum_nmc/electrum/version.py | awk -F"'" '{print $2}')
-    - curl -o Electrum-NMC.tar.gz https://api.cirrus-ci.com/v1/artifact/build/$CIRRUS_BUILD_ID/build:%20tarball/binaries/dist/Electrum-NMC-$ELECTRUM_VERSION.tar.gz
+    - curl -o Electrum-NMC.tar.gz https://api.cirrus-ci.com/v1/artifact/build/$CIRRUS_BUILD_ID/tarball%20build/binaries/dist/Electrum-NMC-$ELECTRUM_VERSION.tar.gz
     - tar -xzf Electrum-NMC.tar.gz
     - cp -a electrum_nmc/electrum/tests Electrum*/electrum_nmc/electrum/
+    # Avoiding descriptor warnings, weirdly no other method works
+    - sed -i '' 's/from google\.protobuf import descriptor as _descriptor/try:\n  from google.protobuf import descriptor as _descriptor\n  _descriptor._Deprecated.count = 0\nexcept Exception:\n  pass/' Electrum*/electrum_nmc/electrum/paymentrequest_pb2.py
     # Bitcoin Core uses a different home directory on macOS
-    - sed -i '' 's#^mkdir -p ~/.namecoin#mkdir -p "/Users/$USER/Library/Application Support/Namecoin"#' electrum/tests/regtest/run_bitcoind.sh
-    - sed -i '' 's#^cat > ~/.namecoin/namecoin.conf#cat > "/Users/$USER/Library/Application Support/Namecoin/namecoin.conf"#' electrum/tests/regtest/run_bitcoind.sh
+    - sed -i '' 's#^mkdir -p ~/.namecoin#mkdir -p "/Users/$USER/Library/Application Support/Namecoin"#' electrum_nmc/electrum/tests/regtest/run_bitcoind.sh
+    - sed -i '' 's#^cat > ~/.namecoin/namecoin.conf#cat > "/Users/$USER/Library/Application Support/Namecoin/namecoin.conf"#' electrum_nmc/electrum/tests/regtest/run_bitcoind.sh
     - pip3 install .[tests]
     - brew install autoconf automake libtool coreutils jq screen
     - Electrum*/contrib/make_libsecp256k1.sh
-    - BITCOIND_URL=$(curl https://www.namecoin.org/download/ | grep x86_64-linux-gnu.tar.gz | grep -v 0.13.99 | grep --only-matching https://.*.tar.gz)
+    - BITCOIND_URL=$(curl -s https://www.namecoin.org/download/ | grep osx64 | grep -v 0.13.99 | awk -F'"' '/https:\/\/.*\.tar\.gz/{print $2}')
     - BITCOIND_FILENAME=$(echo $BITCOIND_URL | grep -E --only-matching 'namecoin-nc.*.tar.gz')
     - BITCOIND_PATH=/tmp/bitcoind/$BITCOIND_FILENAME
     - tar -xzf $BITCOIND_PATH || (rm -f /tmp/bitcoind/* && curl --output $BITCOIND_PATH $BITCOIND_URL && tar -xzf $BITCOIND_PATH)
