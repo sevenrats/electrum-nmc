@@ -813,6 +813,23 @@ def get_domain_records_address_freenet(domain, value):
 
     return records, remaining
 
+def get_domain_records_address_dnslink(domain, value):
+    records = []
+    remaining = []
+
+    # Must be string
+    if type(value) != str:
+        return [], value
+
+    if value.startswith("dnslink=/ipfs/"):
+        records.append([domain, "address", ["ipfs", value]])
+    elif value.startswith("dnslink=/ipns/"):
+        records.append([domain, "address", ["ipns", value]])
+    else:
+        return [], value
+
+    return records, remaining
+
 def get_domain_records_address_zeronet(domain, value):
     records = []
     remaining = None
@@ -1007,6 +1024,9 @@ def get_domain_records_txt(domain, value):
     if domain.startswith("_tor."):
         domain = domain[len("_tor."):]
         return get_domain_records_address_tor(domain, value)
+    elif domain.startswith("_dnslink."):
+        domain = domain[len("_dnslink."):]
+        return get_domain_records_address_dnslink(domain, value)
 
     # Convert string to array (only 1 TXT record exists)
     if type(value) == str:
@@ -1152,11 +1172,16 @@ def get_domain_records_map(domain, value):
 def add_domain_record(base_domain, value, record):
     domain, record_type, data = record
 
-    # Handle Tor records specially
-    if record_type == "address" and data[0] == "tor":
-        domain = "_tor." + domain
-        record_type = "txt"
-        data = data[1]
+    # Handle Tor, IPFS & IPNS records specially
+    if record_type == "address":
+        if data[0] == "tor":
+            domain = "_tor." + domain
+            record_type = "txt"
+            data = data[1]
+        elif data[0] in ["ipfs", "ipns"]:
+            domain = "_dnslink." + domain
+            record_type = "txt"
+            data = f"dnslink=/{data[0]}/{data[1]}" # To prevent duplicating the prefix, remove the prefix when importing the record (e.g in insert_record function in GUI(qt) ) 
 
     # Handle TLS record specially to prepend wildcard subdomain
     if record_type == "tls":
