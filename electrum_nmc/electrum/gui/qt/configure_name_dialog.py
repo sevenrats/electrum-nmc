@@ -33,7 +33,7 @@ from PyQt5.QtWidgets import *
 from electrum.bitcoin import TYPE_ADDRESS
 from electrum.commands import NameAlreadyExistsError
 from electrum.i18n import _
-from electrum.names import format_name_identifier, format_name_identifier_split, identifier_to_namespace, name_to_str, Encoding
+from electrum.names import format_name_identifier, format_name_identifier_split, identifier_to_namespace, name_from_str, name_to_str, Encoding
 from electrum.network import TxBroadcastError, BestEffortRequestFailed
 from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates
 from electrum.wallet import InternalAddressCorruption
@@ -71,15 +71,16 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
 
             self.ui.labelSubmitHint.setText(_("Name registration will take approximately 2 to 4 hours."))
 
-            # TODO: handle non-ASCII encodings
-            self.accepted.connect(lambda: self.register_and_broadcast(self.identifier, self.ui.dataEdit.text().encode('ascii'), self.ui.transferTo))
+            self.accepted.connect(lambda: self.register_and_broadcast(self.identifier, self.ui.dataEditHex.text(), self.ui.transferTo))
         else:
             self.setWindowTitle(_("Reconfigure Name"))
 
             self.ui.labelSubmitHint.setText(_("Name update will take approximately 10 minutes to 2 hours."))
 
-            # TODO: handle non-ASCII encodings
-            self.accepted.connect(lambda: self.update_and_broadcast(self.identifier, self.ui.dataEdit.text().encode('ascii'), self.ui.transferTo))
+            self.accepted.connect(lambda: self.update_and_broadcast(self.identifier, self.ui.dataEditHex.text(), self.ui.transferTo))
+
+        self.SubmitHintText = self.ui.labelSubmitHint.text()
+        self.ui.labelSubmitHint.setWordWrap(True)
 
         formatted_name_split = format_name_identifier_split(self.identifier)
         self.ui.labelNamespace.setText(formatted_name_split.category + ":")
@@ -93,9 +94,17 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
         self.ui.btnDNSEditor.setVisible(self.namespace_is_dns)
         self.ui.btnDNSEditor.clicked.connect(lambda: show_configure_dns(self.ui.dataEdit.text().encode('ascii'), self))
 
+        self.configure_name_ascii_lineedit = self.ui.dataEdit
+        self.configure_name_ascii_lineedit.textEdited.connect(self.update_value_from_ascii)
+
+        self.configure_name_hex_lineedit = self.ui.dataEditHex
+        self.configure_name_hex_lineedit.textChanged.connect(self.update_value_from_hex)
+
     def set_value(self, value):
-        # TODO: support non-ASCII encodings
-        self.ui.dataEdit.setText(value.decode('ascii'))
+        value_hex = name_to_str(value, Encoding.HEX)
+        self.ui.dataEditHex.setText(value_hex)
+        self.update_value_from_hex()
+
 
     def get_transfer_address(self, transfer_to):
         if transfer_to.toPlainText() == "":
@@ -118,7 +127,7 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
 
             return recipient_address
 
-    def register_and_broadcast(self, identifier, value, transfer_to):
+    def register_and_broadcast(self, identifier, value_hex, transfer_to):
         recipient_address = self.get_transfer_address(transfer_to)
         if recipient_address == False:
             return
@@ -126,7 +135,7 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
         name_autoregister = self.main_window.console.namespace.get('name_autoregister')
 
         try:
-            name_autoregister(name_to_str(identifier, Encoding.HEX), name_to_str(value, Encoding.HEX), destination=recipient_address, wallet=self.wallet, name_encoding=Encoding.HEX, value_encoding=Encoding.HEX)
+            name_autoregister(name_to_str(identifier, Encoding.HEX), value_hex, destination=recipient_address, wallet=self.wallet, name_encoding=Encoding.HEX, value_encoding=Encoding.HEX)
         except NameAlreadyExistsError as e:
             formatted_name = format_name_identifier(identifier)
             self.main_window.show_message(_("Error registering ") + formatted_name + ": " + str(e))
@@ -151,7 +160,7 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
             self.main_window.show_message(_("Error registering ") + formatted_name + ": " + str(e))
             return
 
-    def update_and_broadcast(self, identifier, value, transfer_to):
+    def update_and_broadcast(self, identifier, value_hex, transfer_to):
         recipient_address = self.get_transfer_address(transfer_to)
         if recipient_address == False:
             return
@@ -160,8 +169,7 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
         broadcast = self.main_window.console.namespace.get('broadcast')
 
         try:
-            # TODO: support non-ASCII encodings
-            tx = name_update(identifier.decode('ascii'), value.decode('ascii'), destination=recipient_address, wallet=self.wallet)
+            tx = name_update(name_to_str(identifier, Encoding.HEX), value_hex, destination=recipient_address, wallet=self.wallet, name_encoding=Encoding.HEX, value_encoding=Encoding.HEX)
         except (NotEnoughFunds, NoDynamicFeeEstimates) as e:
             formatted_name = format_name_identifier(identifier)
             self.main_window.show_message(_("Error creating update for ") + formatted_name + ": " + str(e))
@@ -183,8 +191,42 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
             self.main_window.show_error(_("Error broadcasting update for ") + formatted_name + ": " + str(e))
             return
 
+    def update_value_from_ascii(self):
+        try:
+            value_ascii = self.ui.dataEdit.text()
+            value = name_from_str(value_ascii, Encoding.ASCII)
+            value_hex = name_to_str(value, Encoding.HEX)
+            self.ui.dataEditHex.setText(value_hex)
+            self.ui.labelSubmitHint.setText(self.SubmitHintText)
+            self.ui.btnDNSEditor.setDisabled(False)
+        except Exception as e:
+            self.ui.labelSubmitHint.setText(f"{e}")
+            self.ui.btnDNSEditor.setDisabled(True)
+
+    def update_value_from_hex(self):
+        try:
+            value_hex = self.ui.dataEditHex.text()
+            value = name_from_str(value_hex, Encoding.HEX)
+
+            self.ui.labelSubmitHint.setText(self.SubmitHintText)
+            self.ui.btnDNSEditor.setDisabled(False)
+            self.ui.buttonBox.button(QDialogButtonBox.Ok).setDisabled(False)
+
+            try:
+                value_ascii = name_to_str(value, Encoding.ASCII)
+                self.ui.dataEdit.setText(value_ascii)
+            except Exception as e:
+                # Make sure we are in the hex_tab
+                # DNS Editor uses ASCII, hence we diable the button
+                self.ui.tabWidget.setCurrentIndex(1)
+                self.ui.btnDNSEditor.setDisabled(True)
+
+        except Exception as e:
+            self.ui.labelSubmitHint.setText(f"{e}")
+            self.ui.btnDNSEditor.setDisabled(True)
+            self.ui.buttonBox.button(QDialogButtonBox.Ok).setDisabled(True)
+
         # As far as I can tell, we don't need to explicitly add the transaction
         # to the wallet, because we're only issuing a single transaction, so
         # there's not much risk of accidental double-spends from subsequent
         # transactions.
-
