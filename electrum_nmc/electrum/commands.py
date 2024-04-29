@@ -1083,6 +1083,61 @@ class Commands:
         return tx.serialize()
 
     @command('wpn')
+    async def name_autoupdate(
+        self,
+        identifier,
+        blocks_before_semi_exp: int,
+        not_after_block: int,
+        value=None,
+        name_encoding='ascii',
+        value_encoding='ascii',
+        destination=None,
+        amount=0.0,
+        outputs=[],
+        fee=None,
+        feerate=None,
+        from_addr=None,
+        from_coins=None,
+        change_addr=None,
+        nocheck=False,
+        unsigned=False,
+        rbf=None,
+        password=None,
+        locktime=None,
+        wallet: Abstract_Wallet = None
+    ) -> None:
+        """
+        So basically, there would be a new RPC command called name_autoupdate.
+        You would pass it an end date, and a duration relative to the semi-expiry 
+        date. It would then run name_update repeatedly, such that a renewal is 
+        scheduled for the specified duration before semi-expiry, until the set of 
+        updates goes though the end date, saving the resulting transactions to the 
+        broadcast queue, similar to how name_autoregister saves the result of 
+        name_firstupdate to the queue.
+        I would consider the time before semi-expiry to be similar enough to a locktime
+        semantically that specifying it in blocks (rather than seconds or something
+        similar) is reasonable. Same for the end date; that can be specified in blocks.
+        """
+
+        name_renewable = constants.net.NAME_SEMI_EXPIRATION - blocks_before_semi_exp
+                
+        try:
+            show = await self.name_show(identifier, name_encoding=name_encoding.value, value_encoding='hex')
+        except NameSemiExpiredError:
+            pass
+        
+        local_chain_height = self.network.get_local_height()
+        server_chain_height = self.network.get_server_height()
+
+        max_chain_height = max(local_chain_height, server_chain_height)
+        
+        next_locktime = max(show['height'] + name_renewable, max_chain_height)
+
+        while next_locktime <= not_after_block:
+            next_locktime += name_renewable
+            print(f"I would generate an update with the locktime {next_locktime}")
+
+    @command('wpn')
     async def name_autoregister(self, identifier, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
         """Create a name pre-registration transaction, broadcast it, create a corresponding name registration transaction, and queue it. """
 
