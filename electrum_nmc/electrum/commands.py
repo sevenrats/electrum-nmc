@@ -1084,27 +1084,10 @@ class Commands:
 
     @command('wpn')
     async def name_autoupdate(
-        self,
-        identifier,
-        blocks_before_semi_exp: int,
-        not_after_block: int,
-        value=None,
-        name_encoding='ascii',
-        value_encoding='ascii',
-        destination=None,
-        amount=0.0,
-        outputs=[],
-        fee=None,
-        feerate=None,
-        from_addr=None,
-        from_coins=None,
-        change_addr=None,
-        nocheck=False,
-        unsigned=False,
-        rbf=None,
-        password=None,
-        locktime=None,
-        wallet: Abstract_Wallet = None
+        self, identifier, blocks_before_semi_exp: int, not_after_block: int, value=None,
+        name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0,
+        outputs=[], fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None,
+        nocheck=False, unsigned=False, rbf=None, password=None, wallet: Abstract_Wallet = None
     ) -> None:
         """
         So basically, there would be a new RPC command called name_autoupdate.
@@ -1122,7 +1105,7 @@ class Commands:
         name_renewable = constants.net.NAME_SEMI_EXPIRATION - blocks_before_semi_exp
                 
         try:
-            show = await self.name_show(identifier, name_encoding=name_encoding.value, value_encoding='hex')
+            show = await self.name_show(identifier, name_encoding=name_encoding, value_encoding='hex')
         except NameSemiExpiredError:
             pass
         
@@ -1131,11 +1114,38 @@ class Commands:
 
         max_chain_height = max(local_chain_height, server_chain_height)
         
-        next_locktime = max(show['height'] + name_renewable, max_chain_height)
+        previous_renewable_height = show['height'] + name_renewable
+        
+        if max_chain_height >= previous_renewable_height:
+            tx = self.name_update(
+                identifier, value=value, name_encoding=name_encoding, value_encoding=value_encoding,
+                destination=destination, amount=amount, outputs=outputs, fee=fee, feerate=feerate,
+                from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, nocheck=nocheck,
+                unsigned=unsigned, rbf=rbf, password=password, locktime=max_chain_height, wallet=wallet
+            )
+
+            next_locktime = max_chain_height + name_renewable
+            last_tx_id = Transaction(tx).txid()
+
+            await self.broadcast(tx, stream_id="txid: " + last_tx_id)
+
+        else:
+            next_locktime = previous_renewable_height
+            last_tx_id = show["txid"]
 
         while next_locktime <= not_after_block:
+            tx = self.name_update(
+                identifier, value=value, name_encoding=name_encoding, value_encoding=value_encoding,
+                destination=destination, amount=amount, outputs=outputs, fee=fee, feerate=feerate,
+                from_addr=from_addr, from_coins=from_coins, change_addr=change_addr, nocheck=nocheck,
+                unsigned=unsigned, rbf=rbf, password=password, locktime=next_locktime, wallet=wallet
+            )
+            result = await self.queuetransaction(tx, name_renewable, trigger_txid=last_tx_id, wallet=wallet)
+            if not result:
+                raise Exception("Error adding automatic update to queue.")
+            
             next_locktime += name_renewable
-            print(f"I would generate an update with the locktime {next_locktime}")
+            last_tx_id = Transaction(tx).txid()
 
     @command('wpn')
     async def name_autoregister(self, identifier, value="", name_encoding='ascii', value_encoding='ascii', destination=None, amount=0.0, fee=None, feerate=None, from_addr=None, from_coins=None, change_addr=None, pseudonymous_identifier=None, nocheck=False, rbf=None, password=None, locktime=None, allow_existing=False, stream_id=None, wallet: Abstract_Wallet = None):
