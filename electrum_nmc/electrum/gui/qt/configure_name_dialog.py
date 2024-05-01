@@ -23,6 +23,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import cbor2
 import sys
 import traceback
 
@@ -92,7 +93,7 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
         self.namespace_is_dns = self.namespace in ["d", "dd"]
 
         self.ui.btnDNSEditor.setVisible(self.namespace_is_dns)
-        self.ui.btnDNSEditor.clicked.connect(lambda: show_configure_dns(self.ui.dataEdit.text().encode('ascii'), self))
+        self.ui.btnDNSEditor.clicked.connect(lambda: show_configure_dns(name_from_str(self.ui.dataEditHex.text(), Encoding.HEX), self))
 
         self.configure_name_ascii_lineedit = self.ui.dataEdit
         self.configure_name_ascii_lineedit.textEdited.connect(self.update_value_from_ascii)
@@ -211,6 +212,16 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
             self.ui.labelSubmitHint.setText(self.SubmitHintText)
             self.ui.btnDNSEditor.setDisabled(False)
             self.ui.buttonBox.button(QDialogButtonBox.Ok).setDisabled(False)
+
+            try:
+                # If parsing the data as CBOR succeeds & data is a dict, return with buttons enabled
+                cbor_data = cbor2.loads(value)
+                if type(cbor_data) is not dict:
+                    # If the data is not a dictionary, dns editor is disabled
+                    self.ui.btnDNSEditor.setDisabled(True)
+                return
+            except Exception:
+                pass
 
             try:
                 value_ascii = name_to_str(value, Encoding.ASCII)

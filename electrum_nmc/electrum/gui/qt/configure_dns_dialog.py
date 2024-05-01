@@ -23,6 +23,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import cbor2
 from copy import deepcopy
 from enum import IntEnum
 import json
@@ -46,10 +47,15 @@ dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 def show_configure_dns(value, parent):
     if value != b"":
         try:
-            json.loads(value)
-        except json.decoder.JSONDecodeError:
-            parent.show_error(_("Current value of name is not valid JSON; please fix this before using the DNS editor."))
-            return
+            # If the cbor is valid we decode it and use it (We already validated it's a dict)
+            cbor_decode_data = cbor2.loads(value)
+            value = cbor_decode_data
+        except Exception:
+            try:
+                json.loads(value)
+            except json.decoder.JSONDecodeError:
+                parent.show_error(_("Current value of name is not valid JSON; please fix this before using the DNS editor."))
+                return
 
     d = ConfigureDNSDialog(value, parent)
 
