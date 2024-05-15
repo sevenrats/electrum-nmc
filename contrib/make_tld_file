@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -e
+
+. contrib/build_tools_util.sh
+
+JSON_TLDFILE="electrum_nmc/electrum/tld_list.json"
+TXT_TLDFILE="electrum_nmc/electrum/tld_list.txt"
+
+# URL containing the list of TLDs
+URL="https://web.archive.org/web/20240204171626if_/https://data.iana.org/TLD/tlds-alpha-by-domain.txt"
+
+# Expected SHA256 hash
+EXPECTED_HASH="8a83daf8057ed871273d7177a427ffc03d9f310ccd3af9f50c21f1b0bbdffa84"
+
+# Required command check
+if ! which jq > /dev/null 2>&1; then
+    echo "jq could not be found. Please install jq."
+    exit 1
+fi
+
+download_if_not_exist $TXT_TLDFILE "$URL"
+
+verify_hash $TXT_TLDFILE  "$EXPECTED_HASH"
+
+# Reading the data, to avoid data_loss
+tld_data=$(<$TXT_TLDFILE)
+
+# Fixing the json file
+echo "$tld_data" | sed '1d' | jq -R -s -c 'split("\n")[:-1]' > $JSON_TLDFILE
+
+rm -f $TXT_TLDFILE

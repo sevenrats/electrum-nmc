@@ -14,6 +14,11 @@ pushd "$PROJECT_ROOT"
 ./contrib/make_qt_forms
 popd
 
+info "Fetching TLDs..."
+pushd "$PROJECT_ROOT"
+./contrib/make_tld_file
+popd
+
 info "Copying www root..."
 pushd "$PROJECT_ROOT"
 rm -rf electrum_nmc/electrum/www

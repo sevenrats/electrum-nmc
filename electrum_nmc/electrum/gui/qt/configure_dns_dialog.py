@@ -36,7 +36,9 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 from electrum.i18n import _
-from electrum.names import add_domain_record, get_domain_records
+from electrum.names import (add_domain_record, get_domain_records, validate_A_record, 
+                            validate_domains, validate_DNSSEC, validate_TLS, format_name_identifier_split, 
+                            validate_SSH, FormattedNameIdentifier, name_from_str, Encoding, validate_SRV)
 
 from .forms.dnsdialog import Ui_DNSDialog
 from .forms.dnssubdomaindialog import Ui_DNSSubDomainDialog
@@ -140,7 +142,26 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         self.ui.btnDeleteRecord.clicked.connect(self.delete_selected_records)
         self.ui.btnEditRecord.clicked.connect(self.edit_selected_record)
 
+        self.ui.tabRecords.currentChanged.connect(self.validations_on_tab_changed)
         self.accepted.connect(lambda: self.name_dialog.set_value(self.get_value()))
+        self.ui.comboHostType.currentIndexChanged.connect(self.validate_address_input)
+
+        self.ui.ErrorLabel.setWordWrap(True)
+        self.ui.editAHostname.textEdited.connect(self.validate_address_input)
+        self.ui.editCNAMEAlias.textEdited.connect(self.validate_CNAME_input)
+        self.ui.editNSHosts.textEdited.connect(self.validate_NS_input)
+        self.ui.editDSHash.textEdited.connect(self.validate_DS_input)
+        self.ui.editDSHashType.textEdited.connect(self.validate_DS_input)
+        self.ui.editDSAlgorithm.textEdited.connect(self.validate_DS_input)
+        self.ui.editTLSData.textChanged.connect(self.validate_TLS_input)
+        self.ui.editIMPORTName.textEdited.connect(self.validate_IMPORT_input)
+        self.ui.editSSHFPFingerprint.textEdited.connect(self.validate_SSH_input)
+        self.ui.editSSHFPAlgorithm.textEdited.connect(self.validate_SSH_input)
+        self.ui.editSSHFPFingerprintType.textEdited.connect(self.validate_SSH_input)
+        self.ui.editSRVPriority.textEdited.connect(self.validate_SRV_input)
+        self.ui.editSRVWeight.textEdited.connect(self.validate_SRV_input)
+        self.ui.editSRVPort.textEdited.connect(self.validate_SRV_input)
+        self.ui.editSRVHost.textEdited.connect(self.validate_SRV_input)
 
     def add_domain(self, domain):
         domain_reverse = domain.split(".")[::-1]
@@ -695,3 +716,148 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         label.setTextFormat(Qt.RichText)
         label.setText(usage_text)
 
+    def validate_address_input(self):
+        address_type = self.ui.comboHostType.currentText()
+        address = self.ui.editAHostname.text()
+
+        try:
+            # Avoid validating empty strings
+            if address:
+                validate_A_record(address, address_type)
+            self.ui.ErrorLabel.clear()
+        except Exception as e:
+            self.ui.ErrorLabel.setText(f"Warning: {e}")
+
+    def validate_CNAME_input(self):
+        hostname = self.ui.editCNAMEAlias.text()
+
+        try:
+            # Avoid validating empty strings
+            if hostname:
+                validate_domains(hostname)
+            self.ui.ErrorLabel.clear()
+        except Exception as e:
+            self.ui.ErrorLabel.setText(f"Warning: {e}")
+
+    def validate_NS_input(self):
+        hostname = self.ui.editNSHosts.text()
+
+        try:
+            # Avoid validating empty strings
+            if hostname:
+                validate_domains(hostname)
+            self.ui.ErrorLabel.clear()
+        except Exception as e:
+            self.ui.ErrorLabel.setText(f"Warning: {e}")
+
+    def validate_DS_input(self):
+        hash = self.ui.editDSHash.text()
+        hashtype = self.ui.editDSHashType.text()
+        algorithm = self.ui.editDSAlgorithm.text()
+
+        try:
+            # Avoiding raising unnecessary errors by avoiding empty strings
+            if hashtype:
+                hashtype = int(hashtype)
+            if algorithm:
+                algorithm = int(algorithm)
+            
+            validate_DNSSEC(hash, hashtype, algorithm)
+            self.ui.ErrorLabel.clear()
+        
+        except ValueError:
+            self.ui.ErrorLabel.setText("Hashtype and Algorithms must be integers")
+        except Exception as e:
+            self.ui.ErrorLabel.setText(f"{e}")
+
+    def validate_TLS_input(self):
+        public_key = self.ui.editTLSData.toPlainText()
+
+        try:
+            validate_TLS(public_key)
+            self.ui.ErrorLabel.clear()
+        except Exception as e:
+            self.ui.ErrorLabel.setText(f"{e}")
+
+    def validate_IMPORT_input(self):
+        NMC_name = self.ui.editIMPORTName.text()
+        # Avoid validating empty strings
+        if NMC_name:
+            try:
+                # Allow dd/ to be accepted, converting it will allow the other checks to be done
+                if NMC_name.startswith("dd/"):
+                    NMC_name = NMC_name.replace("dd/", "d/")
+
+                identifer = name_from_str(NMC_name, Encoding.ASCII)
+                name_identifer = format_name_identifier_split(identifer)
+
+                if name_identifer.category == 'Domain':
+                    self.ui.ErrorLabel.clear()
+                    return
+                else:
+                    raise ValueError("Invalid Namecoin Name")
+            except Exception as e:
+                self.ui.ErrorLabel.setText(f"Warning: {e}")
+        else:
+            self.ui.ErrorLabel.clear()
+
+    def validate_SSH_input(self) -> None:
+        Fingerprint = self.ui.editSSHFPFingerprint.text()
+        FingerprintType = self.ui.editSSHFPFingerprintType.text()
+        Algorithm = self.ui.editSSHFPAlgorithm.text()
+
+        try:
+            if FingerprintType:
+                FingerprintType = int(FingerprintType)
+            if Algorithm:
+                Algorithm = int(Algorithm)
+
+            validate_SSH(Algorithm, FingerprintType, Fingerprint)
+            self.ui.ErrorLabel.clear()
+        except Exception as e:
+            self.ui.ErrorLabel.setText(f"{e}")
+
+    def validate_SRV_input(self) -> None:
+        Priority = self.ui.editSRVPriority.text()
+        Weight = self.ui.editSRVWeight.text()
+        Port = self.ui.editSRVPort.text()
+        Host = self.ui.editSRVHost.text()
+
+        try:
+            # Avoiding raising unnecessary errors by avoiding empty strings
+            if Priority:
+                Priority = int(Priority)
+            if Weight:
+                Weight = int(Weight)
+            if Port:
+                Port = int(Port)
+            
+            validate_SRV(Priority, Weight, Port, Host)
+            self.ui.ErrorLabel.clear()
+        
+        except ValueError:
+            self.ui.ErrorLabel.setText("Priority, Weight and Port must be non-negative integers")
+        except Exception as e:
+            self.ui.ErrorLabel.setText(f"{e}")
+
+    # This function is called when the tab is changed, to revalidate the input
+    def validations_on_tab_changed(self):
+        match self.ui.tabRecords.currentIndex():
+            case 0:
+                self.validate_address_input()
+            case 1:
+                self.validate_CNAME_input()
+            case 2:
+                self.validate_NS_input()
+            case 3:
+                self.validate_DS_input()
+            case 4:
+                self.validate_TLS_input()
+            case 5:
+                self.validate_SRV_input()
+            case 7:
+                self.validate_IMPORT_input()
+            case 8:
+                self.validate_SSH_input()
+            case _:
+                self.ui.ErrorLabel.clear()
