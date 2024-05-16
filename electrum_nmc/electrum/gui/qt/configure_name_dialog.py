@@ -24,6 +24,7 @@
 # SOFTWARE.
 
 import cbor2
+import json
 import sys
 import traceback
 
@@ -34,7 +35,10 @@ from PyQt5.QtWidgets import *
 from electrum.bitcoin import TYPE_ADDRESS
 from electrum.commands import NameAlreadyExistsError
 from electrum.i18n import _
-from electrum.names import format_name_identifier, format_name_identifier_split, identifier_to_namespace, name_from_str, name_to_str, Encoding
+from electrum.names import (format_name_identifier, format_name_identifier_split, get_domain_records,
+                            identifier_to_namespace, name_from_str, name_to_str, Encoding, 
+                            validate_A_record, validate_domains, validate_DNSSEC, validate_TLS, 
+                            validate_SSH, validate_SRV, validate_IMPORT)
 from electrum.network import TxBroadcastError, BestEffortRequestFailed
 from electrum.util import NotEnoughFunds, NoDynamicFeeEstimates
 from electrum.wallet import InternalAddressCorruption
@@ -99,7 +103,11 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
         self.configure_name_ascii_lineedit.textEdited.connect(self.update_value_from_ascii)
 
         self.configure_name_hex_lineedit = self.ui.dataEditHex
-        self.configure_name_hex_lineedit.textChanged.connect(self.update_value_from_hex)
+        self.configure_name_hex_lineedit.textEdited.connect(self.update_value_from_hex)
+
+        self.LabelValidJSON = self.ui.labelValidJSON
+        self.LabelValidJSON.setWordWrap(True)
+        self.configure_name_ascii_lineedit.textChanged.connect(self.validate_json_data)
 
     def set_value(self, value):
         value_hex = name_to_str(value, Encoding.HEX)
@@ -241,3 +249,75 @@ class ConfigureNameDialog(QDialog, MessageBoxMixin):
         # to the wallet, because we're only issuing a single transaction, so
         # there's not much risk of accidental double-spends from subsequent
         # transactions.
+
+    def validate_json_data(self):
+        address_type_dict = {
+            "ip4": "IPv4",
+            "ip6": "IPv6",
+            "tor": "Tor",
+            "i2p": "I2P",
+            "freenet": "Freenet",
+            "zeronet": "ZeroNet",
+        }
+        try:
+            json_string = self.ui.dataEdit.text()
+
+            if not json_string:
+                self.LabelValidJSON.clear()
+                return
+
+            records, self.extra_records = get_domain_records(self.ui.labelName.text(),json_string)
+            for record in records:
+                _, record_type, data = record
+                if record_type == "address":
+                    if data[0] == "ip4":
+                        validate_A_record(data[1], address_type_dict[data[0]])
+                    elif data[0] == "ip6":
+                        validate_A_record(data[1], address_type_dict[data[0]])
+                    elif data[0] == "tor":
+                        validate_A_record(data[1], address_type_dict[data[0]])
+                    elif data[0] == "i2p":
+                        validate_A_record(data[1], address_type_dict[data[0]])
+                    elif data[0] == "freenet":
+                        validate_A_record(data[1], address_type_dict[data[0]])
+                    elif data[0] == "ipfs":
+                        # TODO: Implement IPFS validation
+                        pass
+                    elif data[0] == "ipns":
+                        # TODO: Implement IPNS validation
+                        pass
+                    elif data[0] == "zeronet":
+                        validate_A_record(data[1], address_type_dict[data[0]])
+                    else:
+                        raise ValueError("Unknown address type")
+                
+                elif record_type == "cname":
+                    validate_domains(data)
+                elif record_type == "ns":
+                    validate_domains(data)
+                elif record_type == "ds":
+                    validate_DNSSEC(data[3], data[2], data[1])
+                elif record_type == "tls":
+                    validate_TLS(data)
+                elif record_type == "sshfp":
+                    validate_SSH(data[0], data[1], data[2])
+                elif record_type == "txt":
+                    pass
+                elif record_type == "srv":
+                    validate_SRV(data[0], data[1], data[2], data[3])
+                elif record_type == "import":
+                    validate_IMPORT(data[0])
+                else:
+                    raise ValueError("Unknown record type")
+            # Check if JSON is compact
+            list_of_records = json.loads(json_string)
+            compact_json = json.dumps(list_of_records)
+
+            if len(json_string) > len(compact_json):
+                raise ValueError("JSON is not compact")
+
+            self.LabelValidJSON.clear()
+        except json.JSONDecodeError:
+            self.LabelValidJSON.setText("Invalid JSON")
+        except Exception as e:
+            self.LabelValidJSON.setText(f"{e}")

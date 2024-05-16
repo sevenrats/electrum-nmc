@@ -36,9 +36,9 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 from electrum.i18n import _
-from electrum.names import (add_domain_record, get_domain_records, validate_A_record, 
-                            validate_domains, validate_DNSSEC, validate_TLS, format_name_identifier_split, 
-                            validate_SSH, FormattedNameIdentifier, name_from_str, Encoding, validate_SRV)
+from electrum.names import (add_domain_record, get_domain_records, validate_A_record, validate_domains,
+                            validate_DNSSEC, validate_TLS, format_name_identifier_split, validate_SSH,
+                            FormattedNameIdentifier, name_from_str, Encoding, validate_SRV, validate_IMPORT)
 
 from .forms.dnsdialog import Ui_DNSDialog
 from .forms.dnssubdomaindialog import Ui_DNSSubDomainDialog
@@ -784,18 +784,8 @@ class ConfigureDNSDialog(QDialog, MessageBoxMixin):
         # Avoid validating empty strings
         if NMC_name:
             try:
-                # Allow dd/ to be accepted, converting it will allow the other checks to be done
-                if NMC_name.startswith("dd/"):
-                    NMC_name = NMC_name.replace("dd/", "d/")
-
-                identifer = name_from_str(NMC_name, Encoding.ASCII)
-                name_identifer = format_name_identifier_split(identifer)
-
-                if name_identifer.category == 'Domain':
-                    self.ui.ErrorLabel.clear()
-                    return
-                else:
-                    raise ValueError("Invalid Namecoin Name")
+                validate_IMPORT(NMC_name)
+                self.ui.ErrorLabel.clear()
             except Exception as e:
                 self.ui.ErrorLabel.setText(f"Warning: {e}")
         else:
