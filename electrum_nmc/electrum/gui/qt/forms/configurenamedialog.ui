@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>545</width>
-    <height>345</height>
+    <width>568</width>
+    <height>365</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,21 +19,22 @@
   <property name="windowTitle">
    <string>Configure Name</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout_2">
-   <item row="0" column="0">
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
     <layout class="QGridLayout" name="gridLayout">
-     <item row="4" column="1">
-      <layout class="QHBoxLayout" name="transferToLayout">
-       <property name="spacing">
-        <number>0</number>
+     <item row="6" column="1">
+      <widget class="QLabel" name="labelTransferToHint">
+       <property name="text">
+        <string>(Leave empty if not transferring.)</string>
        </property>
-       <property name="sizeConstraint">
-        <enum>QLayout::SetDefaultConstraint</enum>
+      </widget>
+     </item>
+     <item row="2" column="2">
+      <widget class="QPushButton" name="btnDNSEditor">
+       <property name="text">
+        <string>DNS Editor…</string>
        </property>
-       <item>
-        <widget class="QPayToEdit" name="transferTo"/>
-       </item>
-      </layout>
+      </widget>
      </item>
      <item row="2" column="0">
       <widget class="QLabel" name="label">
@@ -48,14 +49,27 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="2">
-      <widget class="QPushButton" name="btnDNSEditor">
+     <item row="0" column="0">
+      <widget class="QLabel" name="labelNamespace">
        <property name="text">
-        <string>DNS Editor…</string>
+        <string notr="true">TextLabel</string>
+       </property>
+       <property name="buddy">
+        <cstring>dataEdit</cstring>
        </property>
       </widget>
      </item>
-     <item row="4" column="0">
+     <item row="0" column="1">
+      <widget class="QLabel" name="labelName">
+       <property name="text">
+        <string notr="true">TextLabel</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::PlainText</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
       <widget class="QLabel" name="labelTransferTo">
        <property name="text">
         <string>&amp;Transfer to:</string>
@@ -64,6 +78,19 @@
         <cstring>transferTo</cstring>
        </property>
       </widget>
+     </item>
+     <item row="5" column="1">
+      <layout class="QHBoxLayout" name="transferToLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="sizeConstraint">
+        <enum>QLayout::SetDefaultConstraint</enum>
+       </property>
+       <item>
+        <widget class="QPayToEdit" name="transferTo"/>
+       </item>
+      </layout>
      </item>
      <item row="1" column="1">
       <spacer name="verticalSpacer_2">
@@ -77,16 +104,6 @@
         </size>
        </property>
       </spacer>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLabel" name="labelName">
-       <property name="text">
-        <string notr="true">TextLabel</string>
-       </property>
-       <property name="textFormat">
-        <enum>Qt::PlainText</enum>
-       </property>
-      </widget>
      </item>
      <item row="2" column="1">
       <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -117,7 +134,7 @@
              <x>0</x>
              <y>30</y>
              <width>361</width>
-             <height>51</height>
+             <height>41</height>
             </rect>
            </property>
            <property name="text">
@@ -246,26 +263,25 @@
        </property>
       </spacer>
      </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="labelNamespace">
+     <item row="4" column="1" colspan="2">
+      <widget class="QLabel" name="labelValidJSON">
        <property name="text">
-        <string notr="true">TextLabel</string>
+        <string notr="true"/>
        </property>
-       <property name="buddy">
-        <cstring>dataEdit</cstring>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
        </property>
-      </widget>
-     </item>
-     <item row="5" column="1">
-      <widget class="QLabel" name="labelTransferToHint">
-       <property name="text">
-        <string>(Leave empty if not transferring.)</string>
+       <property name="margin">
+        <number>10</number>
+       </property>
+       <property name="indent">
+        <number>10</number>
        </property>
       </widget>
      </item>
     </layout>
    </item>
-   <item row="1" column="0">
+   <item>
     <widget class="QLabel" name="labelSubmitHint">
      <property name="text">
       <string notr="true">TextLabel</string>
@@ -281,7 +297,7 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="0">
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <spacer name="horizontalSpacer">

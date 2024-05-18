@@ -376,6 +376,19 @@ def validate_DNSSEC(Hash: str, HashType: int, Algorithm: int) -> None:
 def validate_TLS(Public_Key: str) -> None:
     a2b_base64(Public_Key)
 
+def validate_IMPORT(namecoin_name: str) -> None:
+    if namecoin_name:
+        if namecoin_name.startswith("dd/"):
+            namecoin_name = namecoin_name.replace("dd/", "d/")
+
+        identifer = name_from_str(namecoin_name, Encoding.ASCII)
+        name_identifer = format_name_identifier_split(identifer)
+
+        if name_identifer.category == 'Domain':
+            return
+        else:
+            raise ValueError("Invalid Namecoin Name")
+
 def validate_SSH(Algorithm:int, FingerprintType:int, Fingerprint: str) -> None:
     try:
         if Fingerprint:
